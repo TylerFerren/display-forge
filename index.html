@@ -94,7 +94,7 @@
     .zoom-label { min-width:43px;text-align:center;color:#b4bcb0;font-size:10px;font-variant-numeric:tabular-nums }
     .mask-toggle { display:flex;align-items:center;gap:5px;padding:0 8px;border-left:1px solid var(--line);color:#cbd2c7;font-size:10px;white-space:nowrap;cursor:pointer }
     .mask-toggle input { margin:0;accent-color:var(--lime) }
-    .stage { position:relative;width:min(100%,1050px); aspect-ratio:16 / 8;min-height:230px;max-height:calc(100vh - 220px);background:transparent;overflow:visible }
+    .stage { position:relative;width:min(100%,1050px); aspect-ratio:16 / 8;background:transparent;overflow:visible }
     .preview-wrap.panning { cursor:grabbing }
     .stage { transition:transform .14s ease-out }
     canvas { display:block;width:100%;height:100%; }
@@ -196,8 +196,8 @@
     .color-control label { flex:1;color:#c6cdc2;font-size:10px }
     .color-control input[type=color] { width:30px;height:25px;padding:2px;border:1px solid var(--line);border-radius:5px;background:#111411;cursor:pointer }
     .color-control input[type=text] { width:78px;padding:5px 6px;border:1px solid var(--line);border-radius:5px;background:#111411;color:#c6cdc2;font-size:10px;text-transform:uppercase }
-    @media (max-width:860px) { main{grid-template-columns:300px minmax(0,1fr)} aside{padding:18px 15px}.workspace{padding:16px}.preview-wrap{padding:35px 22px 45px}.stage{min-height:200px} }
-    @media (max-width:680px) { .app{grid-template-rows:58px 1fr} header{padding:0 10px;gap:6px}.brand{gap:7px;font-size:12px}.brand-mark{width:24px;height:24px}.project-name{display:none}.product-tabs{gap:2px;padding:3px;height:42px}.product-tabs button{height:34px;padding:0 6px;font-size:13px}.local-pill{font-size:0;padding:6px 8px}.local-pill::before{margin:0} main{display:flex;flex-direction:column} aside{max-height:none;border-right:0;border-bottom:1px solid var(--line)} .workspace{min-height:540px}.preview-wrap{min-height:330px}.stage{max-height:none} }
+    @media (max-width:860px) { main{grid-template-columns:300px minmax(0,1fr)} aside{padding:18px 15px}.workspace{padding:16px}.preview-wrap{padding:35px 22px 45px} }
+    @media (max-width:680px) { .app{grid-template-rows:58px 1fr} header{padding:0 10px;gap:6px}.brand{gap:7px;font-size:12px}.brand-mark{width:24px;height:24px}.project-name{display:none}.product-tabs{gap:2px;padding:3px;height:42px}.product-tabs button{height:34px;padding:0 6px;font-size:13px}.local-pill{font-size:0;padding:6px 8px}.local-pill::before{margin:0} main{display:flex;flex-direction:column} aside{max-height:none;border-right:0;border-bottom:1px solid var(--line)} .workspace{min-height:540px}.preview-wrap{min-height:330px} }
     @media (max-width:420px) { .brand>span:not(.brand-mark){display:none}.product-tabs button{padding:0 4px;font-size:12px} }
   </style>
 </head>
@@ -231,7 +231,7 @@
           <button class="add-btn" id="addScreen">＋ Add a screen</button>
           <div class="field">
             <div class="field-head"><label for="gap">Space between screens</label><span id="gapVal">24 px</span></div>
-            <input id="gap" type="range" min="0" max="180" value="24" />
+            <input id="gap" type="number" min="0" max="1000" step="1" value="24" inputmode="numeric" />
           </div>
         </section>
         <section class="group" id="screenSettings">
@@ -938,8 +938,20 @@ precision highp float;out vec2 v_uv;void main(){vec2 p=gl_VertexID==0?vec2(-1.0,
       $('previewWrap').addEventListener('pointerup',stopPan);
       $('previewWrap').addEventListener('pointercancel',stopPan);
       $('previewWrap').addEventListener('click',e=>{if(dragMoved){e.preventDefault();e.stopImmediatePropagation();dragMoved=false;}},true);
-      [['screenWidth','width'],['screenHeight','height'],['screenX','x'],['screenY','y']].forEach(([id,key])=>$(id).addEventListener('input',e=>updateSelected(key,e.target.value)));
-      $('gap').addEventListener('input',e=>{state.gap=Number(e.target.value);let x=0;state.screens.forEach(s=>{s.x=x;x+=s.width+state.gap;});$('gapVal').textContent=`${state.gap} px`;syncInputs();renderList();draw();save();});
+      [['screenX','x'],['screenY','y']].forEach(([id,key])=>$(id).addEventListener('input',e=>updateSelected(key,e.target.value)));
+      [['screenWidth','width'],['screenHeight','height']].forEach(([id,key])=>{
+        const input=$(id);
+        const commit=()=>updateSelected(key,input.value);
+        input.addEventListener('change',commit);
+        input.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();commit();input.blur();}});
+      });
+      function updateGap(value){
+        state.gap=clamp(Number(value)||0,0,1000);
+        let x=0;state.screens.forEach(s=>{s.x=x;x+=s.width+state.gap;});
+        syncInputs();renderList();draw();save();
+      }
+      $('gap').addEventListener('change',e=>updateGap(e.target.value));
+      $('gap').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();updateGap(e.target.value);e.target.blur();}});
       $('maskOffscreen').addEventListener('change',e=>{state.maskOffscreen=e.target.checked;draw();save();});
       $('energy').addEventListener('input',e=>{state.energy=Number(e.target.value);state.recipeSettings[state.preset]={energy:state.energy,grain:state.grain};$('energyVal').textContent=`${state.energy}%`;draw();save();});
       $('grain').addEventListener('input',e=>{state.grain=Number(e.target.value);state.recipeSettings[state.preset]={energy:state.energy,grain:state.grain};$('grainVal').textContent=`${state.grain}%`;draw();save();});
@@ -1004,7 +1016,7 @@ precision highp float;out vec2 v_uv;void main(){vec2 p=gl_VertexID==0?vec2(-1.0,
       $('savedLayoutSelect').addEventListener('change',()=>{const active=!!$('savedLayoutSelect').value;$('recallLayout').disabled=!active;$('deleteLayout').disabled=!active;});
       $('recallLayout').addEventListener('click',()=>{
         const saved=state.savedLayouts.find((layout,index)=>(layout.id||`saved-layout-${index}`)===$('savedLayoutSelect').value);if(!saved)return;
-        state.screens=saved.screens.map(screen=>({...screen}));state.layout=saved.layout==='separate'?'separate':'span';state.gap=clamp(Number(saved.gap)||0,0,180);
+        state.screens=saved.screens.map(screen=>({...screen}));state.layout=saved.layout==='separate'?'separate':'span';state.gap=clamp(Number(saved.gap)||0,0,1000);
         state.selected=state.screens.some(screen=>screen.id===saved.selected)?saved.selected:state.screens[0].id;viewZoom=1;panX=0;panY=0;
         syncInputs();renderList();draw();save();$('savedLayoutStatus').textContent=`“${saved.name||'Saved layout'}” recalled.`;
       });
