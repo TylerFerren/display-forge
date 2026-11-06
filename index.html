@@ -176,8 +176,11 @@
     .selection-toolbar button { padding:7px 8px;font-size:9px }
     .selection-toolbar button:disabled { opacity:.38;cursor:not-allowed }
     .recipe-strip { border:1px solid var(--line);background:#171a17;border-radius:10px;padding:10px 12px }
-    .recipe-strip-head { display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;color:#d7ddd2;font-size:10px;font-weight:570 }
+    .recipe-strip-head { display:flex;justify-content:flex-start;align-items:center;gap:10px;margin-bottom:8px;color:#d7ddd2;font-size:10px;font-weight:570 }
+    .recipe-strip-head strong { color:#d7ddd2;font-size:11px;font-weight:650 }
     .recipe-strip-head span { color:var(--muted);font-weight:400 }
+    .playlist-add { margin-left:auto;padding:6px 9px;font-size:10px;white-space:nowrap }
+    .playlist-add:disabled { opacity:.55;cursor:default }
     .recipe-thumbs { display:flex;gap:8px;overflow-x:auto;padding:1px 1px 3px }
     .recipe-thumb { flex:0 0 132px;text-align:left;overflow:hidden;padding:0;border:1px solid var(--line);border-radius:7px;background:#111411;color:var(--text) }
     .recipe-thumb.active { border-color:var(--lime);box-shadow:0 0 0 1px #d8f27b33 }
@@ -353,9 +356,9 @@
             </div>
             <p class="export-notice" id="noDesigns" hidden>No designs match that search.</p>
           </section>
-          <p class="footer-note">Select one or more recipes, then customize the set in Editor or send the selected set straight to Export.</p>
+          <p class="footer-note">Add scenes to your playlist, then customize them in Editor or send the playlist to Export.</p>
           <div class="selection-toolbar">
-            <span class="selection-count" id="selectionCount">0 recipes selected</span>
+            <span class="selection-count" id="selectionCount">0 scenes in playlist</span>
             <button class="ghost-btn" type="button" data-batch-route="editor" disabled>Customize</button>
             <button class="primary-btn" type="button" data-batch-route="export" disabled>Export</button>
           </div>
@@ -399,7 +402,7 @@
           </section>
           <section class="group" id="emptyEditorRecipes" hidden>
             <div class="card">
-              <p class="sub" style="margin-bottom:9px">Choose one or more recipes in Browser to begin editing.</p>
+              <p class="sub" style="margin-bottom:9px">Add one or more scenes to your playlist to begin editing.</p>
               <button class="ghost-btn" type="button" data-goto-browser>Browse designs</button>
             </div>
           </section>
@@ -416,7 +419,7 @@
               <select id="exportTarget"><option value="canvas">Full extended canvas</option><option value="screens">One file per screen</option></select>
             </div>
             <div class="field"><div class="field-head"><label for="exportFormat">File format</label></div>
-              <select id="exportFormat"><option>MP4 · H.264</option><option>WebM · VP9</option></select>
+              <select id="exportFormat"><option value="mp4">MP4 · H.264</option><option value="webm">WebM</option></select>
             </div>
             <div class="row">
               <div class="field"><div class="field-head"><label for="exportFps">Frame rate</label></div><select id="exportFps"><option>30 fps</option><option>60 fps</option></select></div>
@@ -426,9 +429,9 @@
           <section class="group">
             <p class="section-label">Render summary</p>
             <div class="card" id="exportDetails">Full extended canvas · 3,864 × 1,080 px<br />30 fps · 30 second loop</div>
-            <div class="export-summary"><strong>Ready to render</strong><small>Screen mask and visual settings will be included in the output.</small></div>
+            <div class="export-summary"><strong>Ready to render</strong><small>Video is rendered locally in your browser. Keep this tab open until downloads finish.</small></div>
             <button class="primary-btn full-btn" id="renderVideo" type="button">Render video</button>
-            <div class="export-notice" id="exportNotice">Video rendering is not connected in this prototype yet.</div>
+            <div class="export-notice" id="exportNotice">Choose scenes in the playlist, then render them as video files.</div>
           </section>
         </div>
         <p class="footer-note" id="prototypeNote">Prototype preview only. Everything is saved locally in this browser.</p>
@@ -454,8 +457,8 @@
           <input type="range" id="scrub" min="0" max="30" step="0.01" value="8" aria-label="Preview time" />
           <span class="timeline-end">00:30 loop</span>
         </div>
-        <div class="recipe-strip" id="editorRecipeStrip" hidden>
-          <div class="recipe-strip-head">Selected recipes <span id="stripCount">0</span></div>
+        <div class="recipe-strip" id="editorRecipeStrip">
+          <div class="recipe-strip-head"><strong>Playlist</strong><span id="stripCount">0 scenes</span><button class="ghost-btn playlist-add" id="addSceneButton" type="button" title="Add the currently previewed scene to the playlist">＋ Add current scene</button></div>
           <div class="recipe-thumbs" id="recipeThumbs"></div>
         </div>
       </section>
@@ -486,6 +489,7 @@
       const $ = id => document.getElementById(id);
       const canvas = $('art'), gl = canvas.getContext('webgl2',{alpha:true,antialias:false,premultipliedAlpha:false,preserveDrawingBuffer:false});
       let shaderProgram=null, shaderUniforms={}, shaderNodeUniforms={}, compiledGraphKey='';
+      let renderResolution=null, renderTargetContext=null, exportInProgress=false;
       let advancedMode=false;
       let viewZoom=1, panX=0, panY=0, dragging=false, dragMoved=false, pointerX=0, pointerY=0, startPanX=0, startPanY=0;
       let last = performance.now(), elapsed = 0, anim;
@@ -652,7 +656,6 @@
         document.querySelectorAll('[data-tab-panel]').forEach(panel=>panel.classList.toggle('active',panel.dataset.tabPanel===tab));
         $('previewTitle').textContent=tab==='layout'?'Stage preview':tab==='browser'?'Design preview':tab==='editor'?'Visual preview':'Export preview';
         $('resetBtn').hidden=tab!=='layout';
-        $('editorRecipeStrip').hidden=tab!=='editor';
         $('prototypeNote').hidden=tab==='browser';
       }
       function filterDesigns(){
@@ -665,11 +668,11 @@
         $('designCount').textContent=`${visible} design${visible===1?'':'s'}`;$('noDesigns').hidden=visible>0;
       }
       function renderRecipeSelection(){
-        $('selectionCount').textContent=`${state.selectedRecipes.length} recipe${state.selectedRecipes.length===1?'':'s'} selected`;
+        $('selectionCount').textContent=`${state.selectedRecipes.length} scene${state.selectedRecipes.length===1?'':'s'} in playlist`;
         document.querySelectorAll('[data-design-card]').forEach(card=>card.classList.toggle('has-recipe',state.selectedRecipes.includes(card.dataset.designCard)));
         document.querySelectorAll('[data-toggle-recipe]').forEach(button=>{
           const selected=state.selectedRecipes.includes(button.dataset.toggleRecipe);
-          button.classList.toggle('selected',selected);button.textContent=selected?'Selected ✓':'Select recipe';
+          button.classList.toggle('selected',selected);button.textContent=selected?'In playlist ✓':'Add to playlist';button.title=selected?'Remove this scene from the playlist':'Add this scene to the playlist';
         });
         document.querySelectorAll('[data-batch-route]').forEach(button=>button.disabled=state.selectedRecipes.length===0);
         const empty=state.selectedRecipes.length===0;
@@ -677,10 +680,12 @@
         $('editorControls').hidden=empty;$('editorNodes').hidden=empty||!advancedMode;$('emptyEditorRecipes').hidden=!empty;
       }
       function renderRecipeStrip(){
-        $('stripCount').textContent=state.selectedRecipes.length;
+        $('stripCount').textContent=`${state.selectedRecipes.length} scene${state.selectedRecipes.length===1?'':'s'}`;
+        const addButton=$('addSceneButton'),currentAdded=state.selectedRecipes.includes(state.preset);
+        addButton.disabled=currentAdded;addButton.textContent=currentAdded?'✓ Scene added':'＋ Add current scene';
         const thumbs=$('recipeThumbs');thumbs.innerHTML='';
         if(!state.selectedRecipes.length){
-          thumbs.innerHTML='<div class="empty-recipes"><span>No recipes selected yet.</span><button class="ghost-btn" type="button" data-goto-browser>Browse designs</button></div>';return;
+          thumbs.innerHTML='<div class="empty-recipes"><span>No scenes in your playlist yet.</span><button class="ghost-btn" type="button" data-goto-browser>Browse designs</button></div>';return;
         }
         state.selectedRecipes.forEach(id=>{
           const button=document.createElement('button');button.type='button';button.className='recipe-thumb'+(state.preset===id?' active':'');button.dataset.recipeThumb=id;
@@ -826,6 +831,10 @@ precision highp float;out vec2 v_uv;void main(){vec2 p=gl_VertexID==0?vec2(-1.0,
         if(state.selectedRecipes.length&&!state.selectedRecipes.includes(state.preset))choosePreset(state.selectedRecipes[0]);
         syncInputs();renderRecipeStrip();draw();save();
       }
+      function addCurrentSceneToPlaylist(){
+        if(state.selectedRecipes.includes(state.preset))return;
+        state.selectedRecipes.push(state.preset);renderRecipeSelection();renderRecipeStrip();save();
+      }
       function renderList() {
         $('screenList').innerHTML='';
         state.screens.forEach((s,i)=>{
@@ -842,7 +851,7 @@ precision highp float;out vec2 v_uv;void main(){vec2 p=gl_VertexID==0?vec2(-1.0,
         stage.style.aspectRatio=`${box.width} / ${box.height}`;
         stage.style.transform=`translate(${panX}px, ${panY}px) scale(${viewZoom})`;
         $('zoomLabel').textContent=`${Math.round(viewZoom*100)}%`;
-        const dpr=Math.min(window.devicePixelRatio||1,2), w=Math.max(1,Math.round(stage.clientWidth*dpr)), h=Math.max(1,Math.round(stage.clientHeight*dpr));
+        const dpr=Math.min(window.devicePixelRatio||1,2), w=renderResolution?.width||Math.max(1,Math.round(stage.clientWidth*dpr)), h=renderResolution?.height||Math.max(1,Math.round(stage.clientHeight*dpr));
         if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h;}
         if(gl){
           if(!shaderProgram)compileGraph();
@@ -854,13 +863,15 @@ precision highp float;out vec2 v_uv;void main(){vec2 p=gl_VertexID==0?vec2(-1.0,
             if(shaderUniforms.u_resolution)gl.uniform2f(shaderUniforms.u_resolution,canvas.width,canvas.height);
             set1('u_time',elapsed);set1('u_energy',state.energy/100);set1('u_grain',state.grain/100);set1('u_colorShift',colorSetting.shift/360);
             gl.uniform3fv(shaderUniforms.u_base,rgb(palette.base));gl.uniform3fv(shaderUniforms.u_colorA,rgb(palette.a));gl.uniform3fv(shaderUniforms.u_colorB,rgb(palette.b));gl.uniform3fv(shaderUniforms.u_colorC,rgb(palette.c));
-            const rects=new Float32Array(128),screenCount=Math.min(32,state.screens.length);
-            state.screens.slice(0,32).forEach((screen,index)=>{
+            const rects=new Float32Array(128),targetScreen=renderTargetContext?.screen;
+            const screenCount=targetScreen?1:Math.min(32,state.screens.length);
+            if(targetScreen)rects.set([0,0,1,1],0);
+            else state.screens.slice(0,32).forEach((screen,index)=>{
               const x=(screen.x-box.x)/box.width,y=1-(screen.y-box.y+screen.height)/box.height,w=screen.width/box.width,h=screen.height/box.height;
               rects.set([x,y,w,h],index*4);
             });
             gl.uniform4fv(shaderUniforms.u_screenRects,rects);gl.uniform1i(shaderUniforms.u_screenCount,screenCount);
-            gl.uniform1i(shaderUniforms.u_clipScreens,state.maskOffscreen||state.layout==='separate'?1:0);gl.uniform1i(shaderUniforms.u_separate,state.layout==='separate'?1:0);
+            gl.uniform1i(shaderUniforms.u_clipScreens,targetScreen?0:(state.maskOffscreen?1:0));gl.uniform1i(shaderUniforms.u_separate,targetScreen||state.layout==='separate'?1:0);
             const graph=currentGraph();
             graph.forEach((node,index)=>{if(!node.enabled)return;const slots=shaderNodeUniforms[node.id];if(!slots)return;
               const patterned=['waves','contours','rings','stars','bloom','prism','rays','ink','halftone','particles','horizon','ribbons','refraction','watercolor','startrails','mosaic'].includes(node.type);
@@ -1002,6 +1013,7 @@ precision highp float;out vec2 v_uv;void main(){vec2 p=gl_VertexID==0?vec2(-1.0,
         const [removed]=state.savedLayouts.splice(index,1);renderSavedLayouts();save();$('savedLayoutStatus').textContent=`“${removed.name||'Saved layout'}” deleted.`;
       });
       $('saveBtn').addEventListener('click',()=>{save();});
+      $('addSceneButton').addEventListener('click',addCurrentSceneToPlaylist);
       document.querySelectorAll('[data-workspace-tab]').forEach(button=>button.addEventListener('click',()=>selectWorkspaceTab(button.dataset.workspaceTab)));
       $('designSearch').addEventListener('input',filterDesigns);
       $('designCategory').addEventListener('change',filterDesigns);
@@ -1011,8 +1023,79 @@ precision highp float;out vec2 v_uv;void main(){vec2 p=gl_VertexID==0?vec2(-1.0,
         selectWorkspaceTab(button.dataset.batchRoute);
       }));
       document.addEventListener('click',e=>{if(e.target.closest('[data-goto-browser]'))selectWorkspaceTab('browser');});
+      function supportedRecordingTypes(){
+        if(typeof MediaRecorder==='undefined')return {mp4:null,webm:null};
+        const supports=type=>{try{return MediaRecorder.isTypeSupported(type)?type:null;}catch{return null;}};
+        return {
+          mp4:supports('video/mp4;codecs=avc1.42E01E')||supports('video/mp4'),
+          webm:supports('video/webm;codecs=vp9')||supports('video/webm;codecs=vp8')||supports('video/webm')
+        };
+      }
+      const recordingTypes=supportedRecordingTypes();
+      $('exportFormat').querySelector('[value="mp4"]').disabled=!recordingTypes.mp4;
+      $('exportFormat').querySelector('[value="webm"]').disabled=!recordingTypes.webm;
+      if(recordingTypes.webm)$('exportFormat').querySelector('[value="webm"]').textContent=`WebM · ${recordingTypes.webm.includes('vp9')?'VP9':recordingTypes.webm.includes('vp8')?'VP8':'browser codec'}`;
+      if(!recordingTypes.mp4&&recordingTypes.webm)$('exportFormat').value='webm';
+      function safeFilename(value){return String(value||'scene').normalize('NFKD').replace(/[^a-zA-Z0-9_-]+/g,'-').replace(/^-+|-+$/g,'').slice(0,72)||'scene';}
+      function downloadVideo(blob,name){
+        const url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download=name;link.style.display='none';document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);
+      }
+      function recordCurrentScene(mime,fps,duration,label){
+        return new Promise((resolve,reject)=>{
+          let stream,recorder,timer,progressTimer,settled=false,chunks=[];
+          const fail=error=>{if(settled)return;settled=true;clearTimeout(timer);clearInterval(progressTimer);stream?.getTracks().forEach(track=>track.stop());reject(error instanceof Error?error:new Error(String(error)));};
+          try{
+            if(!canvas.captureStream)throw new Error('Canvas video capture is not available in this browser.');
+            stream=canvas.captureStream(fps);recorder=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:18000000});
+            recorder.ondataavailable=event=>{if(event.data?.size)chunks.push(event.data);};
+            recorder.onerror=event=>fail(event.error||new Error('The browser could not encode this video.'));
+            recorder.onstop=()=>{
+              if(settled)return;settled=true;clearTimeout(timer);clearInterval(progressTimer);stream.getTracks().forEach(track=>track.stop());
+              const type=recorder.mimeType||mime,blob=new Blob(chunks,{type});
+              if(!blob.size){reject(new Error('The browser produced an empty video file.'));return;}
+              downloadVideo(blob,`${safeFilename(label)}.${type.includes('mp4')?'mp4':'webm'}`);resolve();
+            };
+            recorder.start(1000);
+            const started=performance.now();
+            progressTimer=setInterval(()=>{const seconds=Math.min(duration,Math.floor((performance.now()-started)/1000));$('exportNotice').textContent=`Recording ${label} · ${seconds} / ${duration} sec`;},250);
+            timer=setTimeout(()=>{if(recorder.state!=='inactive')recorder.stop();},duration*1000);
+          }catch(error){if(recorder&&recorder.state!=='inactive'){try{recorder.stop();}catch{}}fail(error);}
+        });
+      }
+      async function renderPlaylist(){
+        if(exportInProgress)return;
+        if(!state.selectedRecipes.length){$('exportNotice').textContent='Add one or more scenes to the playlist before exporting.';return;}
+        if(!gl||!canvas.captureStream||typeof MediaRecorder==='undefined'){$('exportNotice').textContent='Browser video export requires WebGL 2, canvas capture, and MediaRecorder support.';return;}
+        const requestedFormat=$('exportFormat').value,mime=recordingTypes[requestedFormat];
+        if(!mime){$('exportNotice').textContent=`${requestedFormat.toUpperCase()} recording is not supported by this browser. Choose an enabled format.`;return;}
+        const fps=parseInt($('exportFps').value,10),duration=parseInt($('exportDuration').value,10),target=$('exportTarget').value;
+        const outputs=[];
+        state.selectedRecipes.forEach(sceneId=>{
+          const sceneName=designNames[sceneId]||sceneId;
+          if(target==='screens')state.screens.forEach(screen=>outputs.push({sceneId,sceneName,screen,label:`${sceneName} - ${screen.name||'Screen'}`,width:screen.width,height:screen.height}));
+          else {const bounds=maxBounds();outputs.push({sceneId,sceneName,label:sceneName,width:bounds.width,height:bounds.height});}
+        });
+        const maxDims=gl.getParameter(gl.MAX_VIEWPORT_DIMS),maxBuffer=gl.getParameter(gl.MAX_RENDERBUFFER_SIZE);
+        const tooLarge=outputs.find(output=>output.width>maxDims[0]||output.height>maxDims[1]||output.width>maxBuffer||output.height>maxBuffer);
+        if(tooLarge){$('exportNotice').textContent=`${tooLarge.width.toLocaleString()} × ${tooLarge.height.toLocaleString()} exceeds this GPU's export limit (${Math.min(maxDims[0],maxBuffer).toLocaleString()} × ${Math.min(maxDims[1],maxBuffer).toLocaleString()} max width/height).`;return;}
+        const button=$('renderVideo'),previous={preset:state.preset,time:state.time,elapsed,playing:state.playing,resolution:renderResolution,target:renderTargetContext};
+        exportInProgress=true;button.disabled=true;button.textContent='Rendering…';state.playing=true;
+        try{
+          for(let index=0;index<outputs.length;index++){
+            const output=outputs[index];$('exportNotice').textContent=`Preparing ${index+1} of ${outputs.length}: ${output.label}`;
+            choosePreset(output.sceneId);state.time=0;elapsed=0;renderResolution={width:output.width,height:output.height};renderTargetContext=output.screen?{screen:output.screen}:null;draw(false);
+            await recordCurrentScene(mime,fps,duration,output.label);
+          }
+          $('exportNotice').textContent=`Finished ${outputs.length} video${outputs.length===1?'':'s'}. Downloads have started.`;
+        }catch(error){$('exportNotice').textContent=`Export stopped: ${error.message||'The browser could not render this video.'}`;}
+        finally{
+          renderResolution=previous.resolution;renderTargetContext=previous.target;elapsed=previous.elapsed;state.time=previous.time;state.playing=previous.playing;
+          if(state.preset!==previous.preset)choosePreset(previous.preset);else{syncInputs();draw();}
+          $('scrub').value=state.time;$('timeReadout').textContent=formatTime(state.time);button.disabled=false;button.textContent='Render video';exportInProgress=false;
+        }
+      }
       ['exportTarget','exportFormat','exportFps','exportDuration'].forEach(id=>$(id).addEventListener('change',updateExportSummary));
-      $('renderVideo').addEventListener('click',()=>{$('exportNotice').textContent=state.selectedRecipes.length?'Prototype mode: your selected recipe exports are ready, but the video render service has not been connected yet.':'Choose one or more recipes in Browser before exporting.';});
+      $('renderVideo').addEventListener('click',renderPlaylist);
       function frame(now){const dt=Math.min(.05,(now-last)/1000);last=now;if(state.playing){elapsed+=dt;state.time=(state.time+dt)%30;$('scrub').value=state.time;$('timeReadout').textContent=formatTime(state.time);draw(false);}anim=requestAnimationFrame(frame);}
       syncInputs();renderList();filterDesigns();compileGraph();draw();window.addEventListener('resize',draw);anim=requestAnimationFrame(frame);
     })();
