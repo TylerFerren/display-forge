@@ -1,0 +1,955 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#111311" />
+  <title>Stillframe — Screen planner prototype</title>
+  <style>
+    :root { color-scheme: dark; --bg:#111311; --panel:#191c19; --panel2:#202420; --line:#303630; --muted:#929b90; --text:#f0f1eb; --lime:#d8f27b; --orange:#d79c70; --blue:#9eb5d0; }
+    * { box-sizing:border-box }
+    body { margin:0; min-height:100vh; background:var(--bg); color:var(--text); font:14px/1.45 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif }
+    button,input,select { font:inherit }
+    button { cursor:pointer }
+    .app { min-height:100vh; display:grid; grid-template-rows:64px 1fr }
+    header { border-bottom:1px solid var(--line); display:flex; align-items:center; justify-content:space-between; padding:0 26px; gap:20px }
+    .brand { display:flex; align-items:center; gap:10px; font-weight:650; letter-spacing:.01em }
+    .brand-mark { display:grid; place-items:center; width:27px;height:27px;border-radius:8px;background:var(--lime);color:#1c2410;font-size:15px;font-weight:900 }
+    .project-name { border-left:1px solid var(--line); padding-left:18px; margin-left:8px; color:#c5cbc1; font-weight:450 }
+    .product-tabs { display:flex;align-items:center;gap:3px;padding:4px;border:1px solid var(--line);border-radius:11px;background:#151815;height:46px;flex:none }
+    .product-tabs button { position:relative;border:1px solid transparent;border-radius:7px;background:transparent;color:var(--muted);padding:0 18px;height:36px;font-size:15px;transition:background .15s ease,border-color .15s ease,color .15s ease }
+    .product-tabs button:hover { color:var(--text);background:#202420 }
+    .product-tabs button.active { color:var(--text);background:#2a3223;border-color:#536444;box-shadow:inset 0 0 0 1px #d8f27b16,0 1px 4px #0005 }
+    .header-right { display:flex;align-items:center;gap:10px;color:var(--muted);font-size:12px }
+    .local-pill { border:1px solid #394139; padding:6px 9px; border-radius:999px; color:#b9c4b3 }
+    .local-pill::before { content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--lime);margin:0 7px 1px 0 }
+    main { display:grid; grid-template-columns:minmax(320px,370px) minmax(0,1fr); min-height:0 }
+    aside { border-right:1px solid var(--line); padding:23px 22px 30px; overflow:auto; max-height:calc(100vh - 64px) }
+    .section-label { color:var(--muted); text-transform:uppercase; letter-spacing:.12em; font-size:10px; font-weight:700; margin:0 0 12px }
+    .group { margin-bottom:25px }
+    h1 { font-size:20px; line-height:1.2; margin:0 0 5px; font-weight:590; letter-spacing:-.03em }
+    .sub { color:var(--muted); margin:0; font-size:12px }
+    .field { margin-top:13px }
+    .field-head { display:flex; align-items:center; justify-content:space-between; color:#c5cbc1; font-size:12px; margin-bottom:7px }
+    .field-head span:last-child { color:var(--muted); font-variant-numeric:tabular-nums }
+    input[type=number],input[type=text], select { color:var(--text); background:#111411; border:1px solid var(--line); border-radius:7px; padding:9px 10px; outline:none; width:100% }
+    input:focus,select:focus { border-color:#74845c }
+    input[type=range] { width:100%; accent-color:var(--lime); height:18px }
+    .row { display:grid;grid-template-columns:1fr 1fr;gap:10px }
+    .tabs { display:grid;grid-template-columns:1fr 1fr; padding:3px; border:1px solid var(--line); border-radius:9px; background:#121512 }
+    .tabs button { border:0; border-radius:6px; padding:8px 7px; background:transparent;color:var(--muted);font-size:12px }
+    .tabs button.active { color:var(--text); background:#292f28; box-shadow:0 1px 3px #0008 }
+    .card { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:13px }
+    .screen-list { display:flex;flex-direction:column;gap:8px }
+    .screen-item { display:flex;gap:10px;align-items:center;padding:10px;border:1px solid var(--line);background:#151815;border-radius:8px;cursor:pointer }
+    .screen-item.selected { border-color:#91a95e;background:#20251b }
+    .screen-icon { display:grid;place-items:center;width:31px;height:25px;border:1px solid #65715b;border-radius:4px;color:var(--lime);font-size:10px;font-weight:700 }
+    .screen-copy { flex:1;min-width:0 }
+    .screen-copy strong { display:block;font-size:12px;font-weight:570 }
+    .screen-copy small { color:var(--muted);font-size:10px }
+    .screen-actions { display:flex;gap:5px }
+    .icon-btn { width:25px;height:25px;border:1px solid transparent;background:transparent;color:var(--muted);border-radius:5px }
+    .icon-btn:hover { border-color:var(--line);color:var(--text) }
+    .add-btn,.primary-btn { border:1px solid #4a5740;background:#272e21;color:var(--lime);border-radius:7px;padding:9px 10px;font-size:12px }
+    .add-btn { width:100%;margin-top:9px }
+    .primary-btn { background:var(--lime);border-color:var(--lime);color:#1b2113;font-weight:650;padding:10px 14px }
+    .preset-grid { display:grid;grid-template-columns:1fr 1fr;gap:8px }
+    .preset { text-align:left;border:1px solid var(--line);border-radius:8px;overflow:hidden;padding:0;background:#141614;color:var(--text) }
+    .preset.active { border-color:var(--lime);box-shadow:0 0 0 1px #d8f27b33 }
+    .swatch { display:block;height:54px;position:relative;overflow:hidden }
+    .swatch::after { content:"";position:absolute;inset:0;background:linear-gradient(120deg,transparent 30%,#fff2 50%,transparent 70%);transform:translateX(-80%);animation:sweep 6s linear infinite }
+    .swatch.aurora { background:radial-gradient(ellipse at 72% 115%,#c9c76e,transparent 50%),radial-gradient(ellipse at 38% 84%,#578976,transparent 52%),linear-gradient(145deg,#101e22,#252b32 55%,#1b211b) }
+    .swatch.tide { background:radial-gradient(ellipse at 48% 130%,#d2b285,transparent 46%),radial-gradient(ellipse at 80% 100%,#59868d,transparent 50%),linear-gradient(160deg,#122d34,#223d43 58%,#172b31) }
+    .swatch.dust { background:radial-gradient(ellipse at 48% 90%,#c27c52,transparent 47%),radial-gradient(ellipse at 15% 120%,#e7c38b,transparent 35%),linear-gradient(150deg,#211c1c,#4a3028 62%,#171715) }
+    .swatch.still { background:radial-gradient(circle at 76% 25%,#f1dba8 0 2%,transparent 2.5%),radial-gradient(ellipse at 70% 105%,#d9a876,transparent 40%),linear-gradient(160deg,#18272b,#435148 72%,#1b211d) }
+    .swatch.tidal-lines { background:repeating-linear-gradient(168deg,transparent 0 7px,#92c5bc 8px 9px,transparent 10px 16px),linear-gradient(155deg,#0d2631,#327c79 58%,#d1b990) }
+    .swatch.contour,.swatch.contour-maps { background:repeating-radial-gradient(ellipse at 45% 55%,transparent 0 8px,#d5cb9a 9px 10px,transparent 11px 17px),linear-gradient(140deg,#1a332d,#778363 55%,#d0bb8e) }
+    .swatch.orbit,.swatch.orbit-rings { background:repeating-radial-gradient(circle at 55% 48%,transparent 0 9px,#b4a6d8 10px 11px,transparent 12px 20px),radial-gradient(circle at 55% 48%,#f0d7a0 0 3%,transparent 4%),linear-gradient(145deg,#17142b,#454475) }
+    .swatch.quiet-stars { background:radial-gradient(circle at 20% 25%,#f3e7c8 0 1px,transparent 2px),radial-gradient(circle at 64% 58%,#dce8e5 0 1px,transparent 2px),radial-gradient(circle at 82% 18%,#f3e7c8 0 1.5px,transparent 2px),linear-gradient(145deg,#101725,#253848 70%,#10151e) }
+    .swatch.fractal-bloom { background:repeating-conic-gradient(from 10deg at 50% 60%,#bb8e9f 0 7deg,#293345 8deg 18deg,#d9b88c 19deg 22deg),radial-gradient(ellipse at 50% 70%,#d9b88c,transparent 60%) }
+    .swatch.prism,.swatch.prism-facets { background:conic-gradient(from 45deg at 25% 25%,#d4a977 0 25%,#445c68 0 50%,#a0a68a 0 75%,#303b4c 0),linear-gradient(135deg,#252d37,#6e807d) }
+    .swatch.sanctuary-rays { background:repeating-conic-gradient(from 8deg at 50% 110%,#e6c08a 0 5deg,transparent 6deg 18deg),linear-gradient(180deg,#172d32,#73927d 62%,#dac294) }
+    .swatch.ink-water { background:radial-gradient(ellipse at 30% 38%,#bac6b1 0 18%,transparent 40%),radial-gradient(ellipse at 74% 68%,#7e9b98 0 12%,transparent 42%),linear-gradient(145deg,#17272b,#455e59 62%,#b4a382) }
+    .swatch.halftone-dunes { background:radial-gradient(circle,#e2b982 1.2px,transparent 1.6px) 0 0/7px 7px,linear-gradient(160deg,#28323a,#a46e4d 75%,#dfc18e) }
+    .swatch.floating-embers { background:radial-gradient(circle at 22% 28%,#ffd29a 0 2px,transparent 3px),radial-gradient(circle at 72% 65%,#f3aa69 0 2px,transparent 3px),radial-gradient(circle at 45% 80%,#ffe4b1 0 1px,transparent 2px),linear-gradient(155deg,#171c20,#53372d 68%,#a76a45) }
+    .preset-label { display:block;padding:7px 8px 8px;font-size:11px }
+    @keyframes sweep { to { transform:translateX(80%) } }
+    .workspace { padding:20px 25px 25px;min-width:0;display:flex;flex-direction:column;gap:15px }
+    .workspace-top { display:flex;align-items:center;justify-content:space-between;gap:14px }
+    .workspace-title { font-size:13px;font-weight:570 }
+    .workspace-sub { color:var(--muted);font-size:11px;margin-top:2px }
+    .top-actions { display:flex;gap:8px;align-items:center }
+    .ghost-btn { background:#1b1f1b;border:1px solid var(--line);color:#c2c8be;border-radius:7px;padding:9px 12px;font-size:12px }
+    .preview-wrap { position:relative;flex:1;min-height:350px;border:1px solid var(--line);border-radius:11px;background-color:#151815;background-image:radial-gradient(#343a34 1px,transparent 1px);background-size:18px 18px;overflow:hidden;display:grid;place-items:center;padding:40px 55px 52px;cursor:grab;touch-action:none }
+    .preview-controls { position:absolute;z-index:5;top:12px;right:14px;display:flex;align-items:center;gap:5px;padding:4px;border:1px solid var(--line);border-radius:8px;background:#171a17eF;box-shadow:0 4px 16px #0005 }
+    .preview-controls button { height:27px;min-width:28px;padding:0 8px;border:1px solid transparent;border-radius:5px;background:transparent;color:#d7ddd2;font-size:12px }
+    .preview-controls button:hover { border-color:#414940;background:#272c26 }
+    .preview-controls .fit-btn { border-left:1px solid var(--line);border-radius:0 4px 4px 0;margin-left:2px;padding-left:10px;color:var(--lime) }
+    .zoom-label { min-width:43px;text-align:center;color:#b4bcb0;font-size:10px;font-variant-numeric:tabular-nums }
+    .mask-toggle { display:flex;align-items:center;gap:5px;padding:0 8px;border-left:1px solid var(--line);color:#cbd2c7;font-size:10px;white-space:nowrap;cursor:pointer }
+    .mask-toggle input { margin:0;accent-color:var(--lime) }
+    .stage { position:relative;width:min(100%,1050px); aspect-ratio:16 / 8;min-height:230px;max-height:calc(100vh - 220px);background:transparent;overflow:visible }
+    .preview-wrap.panning { cursor:grabbing }
+    .stage { transition:transform .14s ease-out }
+    canvas { display:block;width:100%;height:100%; }
+    .screen-outline { position:absolute;border:1px solid #e5f2cf88;pointer-events:auto;cursor:pointer;transition:all .18s ease }
+    .screen-outline.selected { border:2px solid var(--lime);box-shadow:0 0 0 1px #1119,0 0 16px #d8f27b55 }
+    .screen-outline span { position:absolute;left:7px;top:7px;background:#111d;color:#f4f6ed;border:1px solid #ffffff24;padding:3px 6px;border-radius:4px;font-size:9px;white-space:nowrap }
+    .preview-hint { position:absolute;z-index:4;bottom:13px;left:15px;color:#9aa295;font-size:10px;background:#111c;padding:5px 8px;border-radius:5px }
+    .scale-readout { position:absolute;z-index:4;bottom:13px;right:15px;color:#9aa295;font-size:10px }
+    .timeline { border:1px solid var(--line);background:#171a17;border-radius:10px;padding:13px 15px 12px;display:flex;align-items:center;gap:14px }
+    .play { border:0;border-radius:50%;width:31px;height:31px;background:var(--lime);color:#1a2111;font-size:12px;padding-left:3px;flex:none }
+    .time { font-size:11px;color:#c6ccc2;font-variant-numeric:tabular-nums;white-space:nowrap }
+    .timeline input { flex:1 }
+    .timeline-end { width:55px;text-align:right;color:var(--muted);font-size:11px }
+    .footer-note { color:var(--muted);font-size:10px }
+    .tab-panel { display:none }
+    .tab-panel.active { display:block }
+    .node-list { display:flex;flex-direction:column;gap:7px }
+    .node-card { border:1px solid var(--line);background:#151815;border-radius:8px;padding:9px 10px }
+    .node-card.disabled { opacity:.58 }
+    .node-header { display:flex;align-items:center;gap:7px }
+    .node-header input { accent-color:var(--lime);margin:0 }
+    .node-dot { width:23px;height:23px;display:grid;place-items:center;background:#292f28;border:1px solid #3c4935;border-radius:6px;color:var(--lime);font-size:9px;font-weight:650 }
+    .node-title-wrap { flex:1;min-width:0 }
+    .node-title { display:block;font-size:11px;font-weight:560 }
+    .node-description { display:block;margin-top:2px;color:var(--muted);font-size:9px }
+    .node-actions { display:flex;gap:2px }
+    .node-order { min-width:21px;text-align:center;color:var(--muted);font-size:9px;font-variant-numeric:tabular-nums }
+    .node-actions button { width:22px;height:22px;padding:0;border:1px solid transparent;border-radius:4px;background:transparent;color:var(--muted);font-size:11px }
+    .node-actions button:hover { border-color:var(--line);color:var(--text) }
+    .node-actions button.node-reset { width:22px;padding:0;font-size:15px;line-height:1 }
+    .small-reset { width:23px;height:23px;display:grid;place-items:center;border:0;background:transparent;color:var(--muted);font-size:16px;line-height:1;padding:0;border-radius:4px;opacity:0;pointer-events:none;transition:opacity .15s ease,color .15s ease,background .15s ease }
+    .small-reset:hover,.node-reset:hover { background:#292f28;color:var(--lime) }
+    .field:hover .small-reset,.field:focus-within .small-reset,.node-card:hover .node-reset,.node-card:focus-within .node-reset { opacity:1;pointer-events:auto }
+    .small-reset:focus-visible,.node-reset:focus-visible { opacity:1;pointer-events:auto;outline:1px solid var(--lime);outline-offset:1px }
+    @media (hover:none) { .small-reset,.node-reset { opacity:.8;pointer-events:auto } }
+    .field-actions { display:flex;align-items:center;gap:7px;color:var(--muted);font-variant-numeric:tabular-nums }
+    .node-param { margin-top:8px }
+    .node-param .field-head { font-size:10px;margin-bottom:3px }
+    .node-param input[type=range] { height:14px }
+    .node-add { display:flex;gap:7px;margin-top:9px }
+    .node-add select { flex:1;min-width:0;padding:7px 8px;font-size:11px }
+    .node-add button { padding:7px 9px;font-size:11px }
+    .node-add .add-btn { width:auto;margin:0;white-space:nowrap }
+    .shader-status { margin-top:8px;color:var(--muted);font-size:9px;line-height:1.4 }
+    .shader-status.error { color:#efa38e }
+    .advanced-mode-toggle { display:flex;align-items:flex-start;gap:9px;margin-top:17px;padding:10px;border:1px solid var(--line);border-radius:8px;background:#151815;color:#d7ddd2;cursor:pointer }
+    .advanced-mode-toggle input { margin:2px 0 0;accent-color:var(--lime) }
+    .advanced-mode-toggle strong { display:block;font-size:11px;font-weight:570 }
+    .advanced-mode-toggle small { display:block;margin-top:2px;color:var(--muted);font-size:10px;line-height:1.4 }
+    .energy-description { margin:0 0 4px }
+    .export-summary { margin-top:16px;padding:12px;border:1px solid #3b4535;background:#20251b;border-radius:9px }
+    .export-summary strong { display:block;color:var(--lime);font-size:12px;font-weight:580 }
+    .export-summary small { display:block;color:#b5bdb0;font-size:10px;margin-top:4px;line-height:1.45 }
+    .export-notice { color:var(--muted);font-size:10px;margin-top:10px;line-height:1.45;min-height:28px }
+    .full-btn { width:100%;margin-top:14px }
+    .design-tools { display:flex;flex-direction:column;gap:8px;margin-top:14px }
+    .design-search { position:relative }
+    .design-search input[type=search] { width:100%;height:37px;padding:8px 31px 8px 32px;border:1px solid var(--line);border-radius:7px;background:#111411;color:var(--text);outline:none;appearance:none;-webkit-appearance:none;font-size:12px }
+    .design-search input[type=search]::placeholder { color:#7f887d;opacity:1 }
+    .design-search input[type=search]:focus { border-color:#74845c;box-shadow:0 0 0 2px #d8f27b12 }
+    .design-search input[type=search]::-webkit-search-cancel-button { cursor:pointer;filter:grayscale(1) }
+    .design-search::before { content:"⌕";position:absolute;left:11px;top:7px;color:var(--muted);font-size:17px;pointer-events:none }
+    .design-grid { display:grid;grid-template-columns:1fr 1fr;gap:9px }
+    .design-card { min-width:0;border:1px solid var(--line);background:#151815;border-radius:9px;padding:6px;transition:border-color .15s ease,background .15s ease }
+    .design-card.active { border-color:#91a95e;background:#20251b;box-shadow:0 0 0 1px #d8f27b22 }
+    .design-card.has-recipe { border-color:#65734f }
+    .design-card .design-pick { width:100%;display:block;text-align:left;padding:0;border:0;background:none;color:var(--text) }
+    .design-card .swatch { height:62px;border-radius:5px }
+    .design-info { display:block;padding:7px 2px 6px }
+    .design-info strong { display:block;font-size:11px;font-weight:580 }
+    .design-info small { display:block;margin-top:3px;min-height:27px;color:var(--muted);font-size:9px;line-height:1.4 }
+    .design-actions { display:flex;gap:5px }
+    .design-actions button { flex:1;min-width:0;padding:7px 4px;font-size:9px }
+    .design-card[hidden] { display:none }
+    .recipe-select { width:100%;margin-top:2px;padding:7px 6px;border:1px solid var(--line);border-radius:6px;background:#202420;color:#bfc7ba;font-size:10px }
+    .recipe-select.selected { border-color:#83965d;background:#2a3223;color:var(--lime) }
+    .selection-toolbar { display:flex;align-items:center;gap:6px;margin:12px 0 3px;padding:9px;border:1px solid var(--line);border-radius:8px;background:#151815 }
+    .selection-count { flex:1;color:#c9d0c4;font-size:10px }
+    .selection-toolbar button { padding:7px 8px;font-size:9px }
+    .selection-toolbar button:disabled { opacity:.38;cursor:not-allowed }
+    .recipe-strip { border:1px solid var(--line);background:#171a17;border-radius:10px;padding:10px 12px }
+    .recipe-strip-head { display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;color:#d7ddd2;font-size:10px;font-weight:570 }
+    .recipe-strip-head span { color:var(--muted);font-weight:400 }
+    .recipe-thumbs { display:flex;gap:8px;overflow-x:auto;padding:1px 1px 3px }
+    .recipe-thumb { flex:0 0 132px;text-align:left;overflow:hidden;padding:0;border:1px solid var(--line);border-radius:7px;background:#111411;color:var(--text) }
+    .recipe-thumb.active { border-color:var(--lime);box-shadow:0 0 0 1px #d8f27b33 }
+    .recipe-thumb .swatch { height:42px }
+    .recipe-thumb strong { display:block;padding:6px 7px;font-size:10px;font-weight:550;white-space:nowrap;overflow:hidden;text-overflow:ellipsis }
+    .empty-recipes { display:flex;align-items:center;justify-content:space-between;gap:8px;color:var(--muted);font-size:10px }
+    .recipe-focus { display:flex;align-items:center;gap:9px }
+    .recipe-focus .swatch { width:48px;height:36px;border-radius:5px;flex:none }
+    .recipe-focus strong { display:block;color:var(--text);font-size:11px;font-weight:560 }
+    .recipe-focus small { display:block;color:var(--muted);font-size:9px;margin-top:2px }
+    .color-controls { display:flex;flex-direction:column;gap:7px;margin-top:10px }
+    .color-control { display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:7px;background:#151815;padding:7px 8px }
+    .color-control label { flex:1;color:#c6cdc2;font-size:10px }
+    .color-control input[type=color] { width:30px;height:25px;padding:2px;border:1px solid var(--line);border-radius:5px;background:#111411;cursor:pointer }
+    .color-control input[type=text] { width:78px;padding:5px 6px;border:1px solid var(--line);border-radius:5px;background:#111411;color:#c6cdc2;font-size:10px;text-transform:uppercase }
+    @media (max-width:860px) { main{grid-template-columns:300px minmax(0,1fr)} aside{padding:18px 15px}.workspace{padding:16px}.preview-wrap{padding:35px 22px 45px}.stage{min-height:200px} }
+    @media (max-width:680px) { .app{grid-template-rows:58px 1fr} header{padding:0 10px;gap:6px}.brand{gap:7px;font-size:12px}.brand-mark{width:24px;height:24px}.project-name{display:none}.product-tabs{gap:2px;padding:3px;height:42px}.product-tabs button{height:34px;padding:0 6px;font-size:13px}.local-pill{font-size:0;padding:6px 8px}.local-pill::before{margin:0} main{display:flex;flex-direction:column} aside{max-height:none;border-right:0;border-bottom:1px solid var(--line)} .workspace{min-height:540px}.preview-wrap{min-height:330px}.stage{max-height:none} }
+    @media (max-width:420px) { .brand>span:not(.brand-mark){display:none}.product-tabs button{padding:0 4px;font-size:12px} }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div class="brand"><span class="brand-mark">s</span><span>stillframe</span><span class="project-name">Sunday morning setup</span></div>
+      <nav class="product-tabs" role="tablist" aria-label="Project workspace">
+        <button class="active" type="button" role="tab" aria-selected="true" data-workspace-tab="layout">Layout</button>
+        <button type="button" role="tab" aria-selected="false" data-workspace-tab="browser">Browser</button>
+        <button type="button" role="tab" aria-selected="false" data-workspace-tab="editor">Editor</button>
+        <button type="button" role="tab" aria-selected="false" data-workspace-tab="export">Export</button>
+      </nav>
+      <div class="header-right"><span class="local-pill">Saved on this device</span></div>
+    </header>
+    <main>
+      <aside>
+        <div class="tab-panel active" id="layoutPanel" data-tab-panel="layout">
+        <section class="group">
+          <p class="section-label">Workspace</p>
+          <h1>Screen planner</h1>
+          <p class="sub">Shape the stage. See your visual in place.</p>
+        </section>
+        <section class="group">
+          <p class="section-label">Your display layout</p>
+          <div class="tabs" role="tablist" aria-label="Display arrangement">
+            <button class="active" data-layout="span">One canvas</button>
+            <button data-layout="separate">Separate feeds</button>
+          </div>
+          <div class="screen-list" id="screenList" style="margin-top:10px"></div>
+          <button class="add-btn" id="addScreen">＋ Add a screen</button>
+          <div class="field">
+            <div class="field-head"><label for="gap">Space between screens</label><span id="gapVal">24 px</span></div>
+            <input id="gap" type="range" min="0" max="180" value="24" />
+          </div>
+        </section>
+        <section class="group" id="screenSettings">
+          <p class="section-label">Selected screen</p>
+          <div class="card">
+            <div class="field-head" style="margin:0"><strong id="selectedTitle" style="font-weight:570">Center screen</strong><span id="selectedAspect">16:9</span></div>
+            <div class="field">
+              <div class="field-head"><label for="screenName">Screen name</label></div>
+              <input id="screenName" type="text" maxlength="40" value="Center screen" aria-label="Selected screen name" />
+            </div>
+            <div class="field">
+              <div class="field-head"><label for="screenWidth">Width</label><span>pixels</span></div>
+              <input id="screenWidth" type="number" min="320" max="12000" step="16" value="1920" />
+            </div>
+            <div class="field">
+              <div class="field-head"><label for="screenHeight">Height</label><span>pixels</span></div>
+              <input id="screenHeight" type="number" min="240" max="8000" step="16" value="1080" />
+            </div>
+            <div class="row">
+              <div class="field"><div class="field-head"><label for="screenX">Position X</label><span>px</span></div><input id="screenX" type="number" step="16" value="0" /></div>
+              <div class="field"><div class="field-head"><label for="screenY">Position Y</label><span>px</span></div><input id="screenY" type="number" step="16" value="0" /></div>
+            </div>
+          </div>
+        </section>
+        <section class="group">
+          <p class="section-label">Saved layouts</p>
+          <div class="field" style="margin-top:0">
+            <div class="field-head"><label for="layoutName">Save this setup as</label></div>
+            <input id="layoutName" type="text" maxlength="48" placeholder="e.g. Main sanctuary" aria-label="Name for saved layout" />
+          </div>
+          <button class="add-btn" id="saveLayout" type="button">＋ Save current layout</button>
+          <div class="field">
+            <div class="field-head"><label for="savedLayoutSelect">Recall a saved layout</label></div>
+            <select id="savedLayoutSelect" aria-label="Choose a saved layout"><option value="">No saved layouts</option></select>
+          </div>
+          <div class="row">
+            <button class="ghost-btn" id="recallLayout" type="button" disabled>Recall</button>
+            <button class="ghost-btn" id="deleteLayout" type="button" disabled>Delete</button>
+          </div>
+          <p class="footer-note" id="savedLayoutStatus" aria-live="polite">Layouts are saved on this device.</p>
+        </section>
+        </div>
+        <div class="tab-panel" id="browserPanel" data-tab-panel="browser">
+          <section class="group">
+            <p class="section-label">Workspace</p>
+            <h1>Design browser</h1>
+            <p class="sub">Find a visual that fits your service.</p>
+            <div class="design-tools">
+              <div class="design-search"><input id="designSearch" type="search" placeholder="Search designs" aria-label="Search designs" /></div>
+              <select id="designCategory" aria-label="Filter designs by category">
+                <option value="all">All styles</option><option value="atmosphere">Atmosphere</option><option value="water">Water &amp; nature</option><option value="warm">Warm light</option><option value="geometry">Geometry</option><option value="cosmos">Cosmos</option><option value="light">Light</option>
+              </select>
+            </div>
+          </section>
+          <section class="group">
+            <p class="section-label">Visuals · <span id="designCount">4 designs</span></p>
+            <div class="design-grid" id="designCatalog">
+              <article class="design-card" data-design-card="aurora" data-category="atmosphere" data-search="quiet aurora atmosphere green light">
+                <button class="design-pick" type="button" data-preset="aurora" aria-label="Preview Quiet aurora"><span class="swatch aurora"></span><span class="design-info"><strong>Quiet aurora</strong><small>Soft color fields drift across a cool, dusky sky.</small></span></button>
+                <button class="recipe-select" type="button" data-toggle-recipe="aurora">Select recipe</button>
+              </article>
+              <article class="design-card" data-design-card="tide" data-category="water" data-search="slow tide ocean water blue teal">
+                <button class="design-pick" type="button" data-preset="tide" aria-label="Preview Slow tide"><span class="swatch tide"></span><span class="design-info"><strong>Slow tide</strong><small>Layered sea colors move in calm, rolling waves.</small></span></button>
+                <button class="recipe-select" type="button" data-toggle-recipe="tide">Select recipe</button>
+              </article>
+              <article class="design-card" data-design-card="dust" data-category="warm" data-search="desert dust sunset warm amber">
+                <button class="design-pick" type="button" data-preset="dust" aria-label="Preview Desert dust"><span class="swatch dust"></span><span class="design-info"><strong>Desert dust</strong><small>Warm amber light gathers like a quiet sunset.</small></span></button>
+                <button class="recipe-select" type="button" data-toggle-recipe="dust">Select recipe</button>
+              </article>
+              <article class="design-card" data-design-card="still" data-category="warm" data-search="morning light still sunrise cream gold">
+                <button class="design-pick" type="button" data-preset="still" aria-label="Preview Morning light"><span class="swatch still"></span><span class="design-info"><strong>Morning light</strong><small>Gentle dawn glow with a small point of light.</small></span></button>
+                <button class="recipe-select" type="button" data-toggle-recipe="still">Select recipe</button>
+              </article>
+              <article class="design-card" data-design-card="tidal-lines" data-category="water" data-search="tidal lines flowing ocean wave currents">
+                <button class="design-pick" type="button" data-preset="tidal-lines" aria-label="Preview Tidal Lines"><span class="swatch tidal-lines"></span><span class="design-info"><strong>Tidal Lines</strong><small>Layered current bands sweep in long, fluid curves.</small></span></button><button class="recipe-select" type="button" data-toggle-recipe="tidal-lines">Select recipe</button>
+              </article>
+              <article class="design-card" data-design-card="contour-maps" data-category="geometry" data-search="contour maps topographic lines terrain">
+                <button class="design-pick" type="button" data-preset="contour-maps" aria-label="Preview Contour Maps"><span class="swatch contour"></span><span class="design-info"><strong>Contour Maps</strong><small>Topographic lines trace slow, shifting terrain.</small></span></button><button class="recipe-select" type="button" data-toggle-recipe="contour-maps">Select recipe</button>
+              </article>
+              <article class="design-card" data-design-card="orbit-rings" data-category="cosmos" data-search="orbit rings planet circles cosmic">
+                <button class="design-pick" type="button" data-preset="orbit-rings" aria-label="Preview Orbit Rings"><span class="swatch orbit"></span><span class="design-info"><strong>Orbit Rings</strong><small>Concentric orbital paths gather around a quiet center.</small></span></button><button class="recipe-select" type="button" data-toggle-recipe="orbit-rings">Select recipe</button>
+              </article>
+              <article class="design-card" data-design-card="quiet-stars" data-category="cosmos" data-search="quiet stars night sky constellation">
+                <button class="design-pick" type="button" data-preset="quiet-stars" aria-label="Preview Quiet Stars"><span class="swatch quiet-stars"></span><span class="design-info"><strong>Quiet Stars</strong><small>Small lights twinkle at different depths in a night sky.</small></span></button><button class="recipe-select" type="button" data-toggle-recipe="quiet-stars">Select recipe</button>
+              </article>
+              <article class="design-card" data-design-card="fractal-bloom" data-category="atmosphere" data-search="fractal bloom flower petals mandala">
+                <button class="design-pick" type="button" data-preset="fractal-bloom" aria-label="Preview Fractal Bloom"><span class="swatch fractal-bloom"></span><span class="design-info"><strong>Fractal Bloom</strong><small>Petal-like forms slowly unfold from a radial core.</small></span></button><button class="recipe-select" type="button" data-toggle-recipe="fractal-bloom">Select recipe</button>
+              </article>
+              <article class="design-card" data-design-card="prism-facets" data-category="geometry" data-search="prism facets geometric triangles mosaic">
+                <button class="design-pick" type="button" data-preset="prism-facets" aria-label="Preview Prism Facets"><span class="swatch prism"></span><span class="design-info"><strong>Prism Facets</strong><small>Faceted planes catch light in a shifting mosaic.</small></span></button><button class="recipe-select" type="button" data-toggle-recipe="prism-facets">Select recipe</button>
+              </article>
+              <article class="design-card" data-design-card="sanctuary-rays" data-category="light" data-search="sanctuary rays beams sunlight sacred">
+                <button class="design-pick" type="button" data-preset="sanctuary-rays" aria-label="Preview Sanctuary Rays"><span class="swatch sanctuary-rays"></span><span class="design-info"><strong>Sanctuary Rays</strong><small>Broad beams of warm light fan upward across the stage.</small></span></button><button class="recipe-select" type="button" data-toggle-recipe="sanctuary-rays">Select recipe</button>
+              </article>
+              <article class="design-card" data-design-card="ink-water" data-category="water" data-search="ink water watercolor wash marbling">
+                <button class="design-pick" type="button" data-preset="ink-water" aria-label="Preview Ink in Water"><span class="swatch ink-water"></span><span class="design-info"><strong>Ink in Water</strong><small>Soft pigment blooms drift and diffuse like watercolor.</small></span></button><button class="recipe-select" type="button" data-toggle-recipe="ink-water">Select recipe</button>
+              </article>
+              <article class="design-card" data-design-card="halftone-dunes" data-category="geometry" data-search="halftone dunes dots desert print">
+                <button class="design-pick" type="button" data-preset="halftone-dunes" aria-label="Preview Halftone Dunes"><span class="swatch halftone-dunes"></span><span class="design-info"><strong>Halftone Dunes</strong><small>Dot fields swell into rolling dune silhouettes.</small></span></button><button class="recipe-select" type="button" data-toggle-recipe="halftone-dunes">Select recipe</button>
+              </article>
+              <article class="design-card" data-design-card="floating-embers" data-category="light" data-search="floating embers fire particles sparks">
+                <button class="design-pick" type="button" data-preset="floating-embers" aria-label="Preview Floating Embers"><span class="swatch floating-embers"></span><span class="design-info"><strong>Floating Embers</strong><small>Glowing particles rise and drift at different speeds.</small></span></button><button class="recipe-select" type="button" data-toggle-recipe="floating-embers">Select recipe</button>
+              </article>
+            </div>
+            <p class="export-notice" id="noDesigns" hidden>No designs match that search.</p>
+          </section>
+          <p class="footer-note">Select one or more recipes, then customize the set in Editor or send the selected set straight to Export.</p>
+          <div class="selection-toolbar">
+            <span class="selection-count" id="selectionCount">0 recipes selected</span>
+            <button class="ghost-btn" type="button" data-batch-route="editor" disabled>Customize</button>
+            <button class="primary-btn" type="button" data-batch-route="export" disabled>Export</button>
+          </div>
+        </div>
+        <div class="tab-panel" id="editorPanel" data-tab-panel="editor">
+          <section class="group">
+            <p class="section-label">Workspace</p>
+            <h1>Visual editor</h1>
+            <p class="sub">Set each recipe’s energy, color, and effects.</p>
+          </section>
+          <section class="group" id="editorControls">
+          <p class="section-label">Recipe foundation</p>
+          <div class="card">
+            <div class="recipe-focus"><span class="swatch aurora" id="recipeFocusSwatch"></span><span><strong id="recipeFocusTitle">Quiet aurora</strong><small>Editing selected recipe</small></span></div>
+          </div>
+          <div class="field">
+            <div class="field-head"><label for="energy">Energy</label><span class="field-actions"><span id="energyVal">35%</span><button class="small-reset" id="resetEnergy" type="button" title="Reset Energy" aria-label="Reset Energy">↺</button></span></div>
+            <p class="footer-note energy-description">Controls the overall speed and scale of movement.</p>
+            <input id="energy" type="range" min="0" max="100" value="35" />
+          </div>
+          <div class="field">
+            <div class="field-head"><label for="colorMode">Color</label><button class="small-reset" id="resetColor" type="button" title="Reset Color" aria-label="Reset Color">↺</button></div>
+            <select id="colorMode"><option value="single">Single color</option><option value="gradient">Gradient</option><option value="swatches">Color swatches</option></select>
+          </div>
+          <div class="field" id="colorShiftField">
+            <div class="field-head"><label for="colorShift">Color shift</label><span id="colorShiftVal">0°</span></div>
+            <input id="colorShift" type="range" min="-180" max="180" value="0" />
+          </div>
+          <div class="color-controls" id="colorControls"></div>
+          <div class="field">
+            <div class="field-head"><label for="grain">Film grain</label><span class="field-actions"><span id="grainVal">12%</span><button class="small-reset" id="resetGrain" type="button" title="Reset Film grain" aria-label="Reset Film grain">↺</button></span></div>
+            <input id="grain" type="range" min="0" max="100" value="12" />
+          </div>
+          <label class="advanced-mode-toggle" for="advancedMode"><input id="advancedMode" type="checkbox" /><span><strong>Advanced mode</strong><small>Show the shader effect stack and node controls.</small></span></label>
+        </section>
+          <section class="group" id="editorNodes">
+            <p class="section-label">Effects</p>
+            <div class="node-list" id="graphNodes"></div>
+            <div class="node-add" id="nodeAddPanel" hidden><select id="addNodeType" aria-label="Node type to add"><option value="noise">Noise</option><option value="gradient">Gradient</option><option value="mirror">Mirror</option><option value="blend">Blend</option><option value="grain">Film grain</option><option value="waves">Tidal lines</option><option value="contours">Contour maps</option><option value="rings">Orbit rings</option><option value="stars">Star field</option><option value="bloom">Fractal bloom</option><option value="prism">Prism facets</option><option value="rays">Sanctuary rays</option><option value="ink">Ink wash</option><option value="halftone">Halftone dunes</option><option value="particles">Floating embers</option></select><button class="add-btn" id="addGraphNode" type="button">＋ Add node</button></div>
+            <p class="shader-status" id="shaderStatus">WebGL 2 shader ready.</p>
+          </section>
+          <section class="group" id="emptyEditorRecipes" hidden>
+            <div class="card">
+              <p class="sub" style="margin-bottom:9px">Choose one or more recipes in Browser to begin editing.</p>
+              <button class="ghost-btn" type="button" data-goto-browser>Browse designs</button>
+            </div>
+          </section>
+        </div>
+        <div class="tab-panel" id="exportPanel" data-tab-panel="export">
+          <section class="group">
+            <p class="section-label">Workspace</p>
+            <h1>Export video</h1>
+            <p class="sub">Set up an output for your display system.</p>
+          </section>
+          <section class="group">
+            <p class="section-label">Output settings</p>
+            <div class="field" style="margin-top:0"><div class="field-head"><label for="exportTarget">Output layout</label></div>
+              <select id="exportTarget"><option value="canvas">Full extended canvas</option><option value="screens">One file per screen</option></select>
+            </div>
+            <div class="field"><div class="field-head"><label for="exportFormat">File format</label></div>
+              <select id="exportFormat"><option>MP4 · H.264</option><option>WebM · VP9</option></select>
+            </div>
+            <div class="row">
+              <div class="field"><div class="field-head"><label for="exportFps">Frame rate</label></div><select id="exportFps"><option>30 fps</option><option>60 fps</option></select></div>
+              <div class="field"><div class="field-head"><label for="exportDuration">Loop length</label></div><select id="exportDuration"><option>15 sec</option><option selected>30 sec</option><option>60 sec</option></select></div>
+            </div>
+          </section>
+          <section class="group">
+            <p class="section-label">Render summary</p>
+            <div class="card" id="exportDetails">Full extended canvas · 3,864 × 1,080 px<br />30 fps · 30 second loop</div>
+            <div class="export-summary"><strong>Ready to render</strong><small>Screen mask and visual settings will be included in the output.</small></div>
+            <button class="primary-btn full-btn" id="renderVideo" type="button">Render video</button>
+            <div class="export-notice" id="exportNotice">Video rendering is not connected in this prototype yet.</div>
+          </section>
+        </div>
+        <p class="footer-note" id="prototypeNote">Prototype preview only. Everything is saved locally in this browser.</p>
+      </aside>
+      <section class="workspace">
+        <div class="workspace-top">
+          <div><div class="workspace-title" id="previewTitle">Stage preview</div><div class="workspace-sub" id="stageMeta">2 screens · extended canvas · 3,864 × 1,080 px</div></div>
+          <div class="top-actions"><button class="ghost-btn" id="resetBtn" data-layout-only>Reset layout</button><button class="primary-btn" id="saveBtn">Saved ✓</button></div>
+        </div>
+        <div class="preview-wrap" id="previewWrap">
+          <div class="preview-controls" aria-label="Preview navigation">
+            <button id="zoomOut" title="Zoom out" aria-label="Zoom out">−</button>
+            <span class="zoom-label" id="zoomLabel">100%</span>
+            <button id="zoomIn" title="Zoom in" aria-label="Zoom in">＋</button>
+            <label class="mask-toggle" for="maskOffscreen"><input id="maskOffscreen" type="checkbox" />Mask</label>
+            <button id="fitView" class="fit-btn" title="Fit the full layout in view">Fit</button>
+          </div>
+          <div class="stage" id="stage"><canvas id="art"></canvas><div id="outlines"></div></div>
+          <div class="preview-hint">Preview scaled to fit · select a screen to edit it</div><div class="scale-readout" id="scaleReadout">—</div>
+        </div>
+        <div class="timeline">
+          <button class="play" id="playBtn" aria-label="Pause preview">Ⅱ</button><span class="time" id="timeReadout">00:08</span>
+          <input type="range" id="scrub" min="0" max="30" step="0.01" value="8" aria-label="Preview time" />
+          <span class="timeline-end">00:30 loop</span>
+        </div>
+        <div class="recipe-strip" id="editorRecipeStrip" hidden>
+          <div class="recipe-strip-head">Selected recipes <span id="stripCount">0</span></div>
+          <div class="recipe-thumbs" id="recipeThumbs"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script>
+    (() => {
+      const initial = {
+        layout: 'span', gap: 24, maskOffscreen: false, preset: 'aurora', energy: 35, grain: 12, time: 8, playing: true, selectedRecipes: [], recipeSettings: {}, recipeGraphs: {}, colorSettings: {}, savedLayouts: [],
+        screens: [
+          { id:'left', name:'Left screen', width:1920, height:1080, x:0, y:0 },
+          { id:'center', name:'Center screen', width:1920, height:1080, x:1944, y:0 }
+        ], selected:'center'
+      };
+      let state;
+      try { state = {...initial, ...JSON.parse(localStorage.getItem('stillframe-prototype') || '{}')}; }
+      catch { state = {...initial}; }
+      // Playback is a session preference: always start moving when the prototype opens.
+      state.playing = true;
+      if (!Array.isArray(state.selectedRecipes)) state.selectedRecipes=[];
+      if (!Array.isArray(state.savedLayouts)) state.savedLayouts=[];
+      state.savedLayouts=state.savedLayouts.filter(item=>item&&Array.isArray(item.screens)&&item.screens.length>0);
+      if (!state.recipeSettings || typeof state.recipeSettings!=='object') state.recipeSettings={};
+      if (!state.colorSettings || typeof state.colorSettings!=='object') state.colorSettings={};
+      if(state.energy===undefined)state.energy=state.motion??35;delete state.motion;
+      if (!Array.isArray(state.screens) || !state.screens.length) state.screens = initial.screens.map(s=>({...s}));
+      if (!state.screens.some(s=>s.id===state.selected)) state.selected = state.screens[0].id;
+      const $ = id => document.getElementById(id);
+      const canvas = $('art'), gl = canvas.getContext('webgl2',{alpha:true,antialias:false,premultipliedAlpha:false,preserveDrawingBuffer:false});
+      let shaderProgram=null, shaderUniforms={}, shaderNodeUniforms={}, compiledGraphKey='';
+      let advancedMode=false;
+      let viewZoom=1, panX=0, panY=0, dragging=false, dragMoved=false, pointerX=0, pointerY=0, startPanX=0, startPanY=0;
+      let last = performance.now(), elapsed = 0, anim;
+      const palettes = {
+        aurora: { base:'#111b1e', a:'#668f76', b:'#d2cc83', c:'#263b42' },
+        tide: { base:'#10282d', a:'#3d8087', b:'#d2b58b', c:'#244b50' },
+        dust: { base:'#281c19', a:'#ad6448', b:'#e0bd88', c:'#594033' },
+        still: { base:'#172426', a:'#568174', b:'#e1ba86', c:'#324f49' },
+        'tidal-lines': {base:'#10272f',a:'#3b8381',b:'#bdd2c0',c:'#244d5a'},
+        'contour-maps': {base:'#172824',a:'#78906b',b:'#d2bf91',c:'#3d5b4b'},
+        'orbit-rings': {base:'#101a30',a:'#6e88bf',b:'#dfbd86',c:'#34476e'},
+        'quiet-stars': {base:'#101522',a:'#b2c5df',b:'#f1dfb4',c:'#343e58'},
+        'fractal-bloom': {base:'#261c2d',a:'#9a6b91',b:'#e4bd9a',c:'#563a5b'},
+        'prism-facets': {base:'#15242b',a:'#4b9b9b',b:'#d6ad78',c:'#536a91'},
+        'sanctuary-rays': {base:'#29221b',a:'#c58a4d',b:'#f0d4a0',c:'#76533a'},
+        'ink-water': {base:'#172b32',a:'#478486',b:'#b5c4b2',c:'#354d68'},
+        'halftone-dunes': {base:'#30251d',a:'#bb754d',b:'#e2c48d',c:'#72533a'},
+        'floating-embers': {base:'#201a1b',a:'#dd7441',b:'#ffd08a',c:'#5a3030'}
+      };
+      const designNames={aurora:'Quiet aurora',tide:'Slow tide',dust:'Desert dust',still:'Morning light','tidal-lines':'Tidal Lines','contour-maps':'Contour Maps','orbit-rings':'Orbit Rings','quiet-stars':'Quiet Stars','fractal-bloom':'Fractal Bloom','prism-facets':'Prism Facets','sanctuary-rays':'Sanctuary Rays','ink-water':'Ink in Water','halftone-dunes':'Halftone Dunes','floating-embers':'Floating Embers'};
+      const defaultColors={
+        aurora:{mode:'swatches',colors:[palettes.aurora.base,palettes.aurora.a,palettes.aurora.b,palettes.aurora.c],shift:0},
+        tide:{mode:'gradient',colors:[palettes.tide.base,palettes.tide.b,palettes.tide.a,palettes.tide.c],shift:0},
+        dust:{mode:'single',colors:[palettes.dust.a,palettes.dust.b,palettes.dust.c,palettes.dust.base],shift:0},
+        still:{mode:'swatches',colors:[palettes.still.base,palettes.still.a,palettes.still.b,palettes.still.c],shift:0},
+        'tidal-lines':{mode:'gradient',colors:[palettes['tidal-lines'].base,palettes['tidal-lines'].a,palettes['tidal-lines'].b,palettes['tidal-lines'].c],shift:0},
+        'contour-maps':{mode:'swatches',colors:[palettes['contour-maps'].base,palettes['contour-maps'].a,palettes['contour-maps'].b,palettes['contour-maps'].c],shift:0},
+        'orbit-rings':{mode:'gradient',colors:[palettes['orbit-rings'].base,palettes['orbit-rings'].b,palettes['orbit-rings'].a,palettes['orbit-rings'].c],shift:0},
+        'quiet-stars':{mode:'single',colors:[palettes['quiet-stars'].b,palettes['quiet-stars'].a,palettes['quiet-stars'].c,palettes['quiet-stars'].base],shift:0},
+        'fractal-bloom':{mode:'swatches',colors:[palettes['fractal-bloom'].base,palettes['fractal-bloom'].a,palettes['fractal-bloom'].b,palettes['fractal-bloom'].c],shift:0},
+        'prism-facets':{mode:'swatches',colors:[palettes['prism-facets'].base,palettes['prism-facets'].a,palettes['prism-facets'].b,palettes['prism-facets'].c],shift:0},
+        'sanctuary-rays':{mode:'gradient',colors:[palettes['sanctuary-rays'].base,palettes['sanctuary-rays'].b,palettes['sanctuary-rays'].a,palettes['sanctuary-rays'].c],shift:0},
+        'ink-water':{mode:'swatches',colors:[palettes['ink-water'].base,palettes['ink-water'].a,palettes['ink-water'].b,palettes['ink-water'].c],shift:0},
+        'halftone-dunes':{mode:'single',colors:[palettes['halftone-dunes'].b,palettes['halftone-dunes'].a,palettes['halftone-dunes'].c,palettes['halftone-dunes'].base],shift:0},
+        'floating-embers':{mode:'gradient',colors:[palettes['floating-embers'].base,palettes['floating-embers'].b,palettes['floating-embers'].a,palettes['floating-embers'].c],shift:0}
+      };
+      Object.keys(designNames).forEach(id=>{
+        if(!state.colorSettings[id])state.colorSettings[id]=JSON.parse(JSON.stringify(defaultColors[id]));
+        const setting=state.recipeSettings[id];if(setting&&setting.energy===undefined)setting.energy=setting.motion??state.energy;
+      });
+      const nodeNames={noise:'Noise field',gradient:'Color gradient',mirror:'Mirror',blend:'Blend',grain:'Film grain',waves:'Tidal lines',contours:'Contour maps',rings:'Orbit rings',stars:'Star field',bloom:'Fractal bloom',prism:'Prism facets',rays:'Sanctuary rays',ink:'Ink wash',halftone:'Halftone dunes',particles:'Floating embers'};
+      function defaultNodeParams(type){
+        if(type==='noise')return {scale:3.6,speed:48,contrast:100};
+        if(type==='gradient')return {angle:18,strength:32};
+        if(type==='blend')return {opacity:55};
+        if(type==='grain')return {amount:42};
+        if(['waves','contours','rings','stars','bloom','prism','rays','ink','halftone','particles'].includes(type))return {scale:5,speed:30,strength:82};
+        return {};
+      }
+      function createNode(type){return {id:`${type}-${Date.now()}-${Math.random().toString(36).slice(2,6)}`,type,enabled:true,...defaultNodeParams(type)};}
+      function defaultGraph(){return ['gradient','noise','blend','grain'].map(createNode);}
+      function defaultRecipeGraph(id){
+        const recipes={
+          'tidal-lines':[['waves',{scale:4,speed:32,strength:86}],['grain',{amount:14}]],
+          'contour-maps':[['contours',{scale:6,speed:12,strength:88}]],
+          'orbit-rings':[['rings',{scale:5,speed:24,strength:84}],['grain',{amount:12}]],
+          'quiet-stars':[['stars',{scale:22,speed:34,strength:95}]],
+          'fractal-bloom':[['bloom',{scale:7,speed:19,strength:82}]],
+          'prism-facets':[['prism',{scale:7,speed:11,strength:90}]],
+          'sanctuary-rays':[['rays',{scale:9,speed:18,strength:90}]],
+          'ink-water':[['ink',{scale:3,speed:10,strength:88}]],
+          'halftone-dunes':[['halftone',{scale:20,speed:10,strength:92}]],
+          'floating-embers':[['particles',{scale:12,speed:36,strength:96}],['grain',{amount:10}]]
+        };
+        if(!recipes[id])return defaultGraph();
+        return [['gradient',{angle:18,strength:32}],...recipes[id].map(([type,params])=>[type,params])].map(([type,params])=>Object.assign(createNode(type),params));
+      }
+      if(!state.recipeGraphs||typeof state.recipeGraphs!=='object')state.recipeGraphs={};
+      Object.keys(designNames).forEach(id=>{if(!Array.isArray(state.recipeGraphs[id]))state.recipeGraphs[id]=defaultRecipeGraph(id);});
+      Object.values(state.recipeGraphs).forEach(graph=>graph.forEach(node=>{
+        if(node.enabled===undefined)node.enabled=true;
+        if(node.type==='noise'&&node.contrast===undefined)node.contrast=100;
+        if(node.type==='gradient'&&node.strength===undefined)node.strength=32;
+      }));
+      const currentGraph=()=>state.recipeGraphs[state.preset]||[];
+      const save = () => { localStorage.setItem('stillframe-prototype', JSON.stringify(state)); $('saveBtn').textContent='Saved ✓'; };
+      const current = () => state.screens.find(s=>s.id===state.selected) || state.screens[0];
+      const formatTime=seconds=>`${String(Math.floor(seconds/60)).padStart(2,'0')}:${(seconds%60).toFixed(2).padStart(5,'0')}`;
+      const clamp=(value,min,max)=>Math.max(min,Math.min(max,value));
+      function renderSavedLayouts(){
+        const select=$('savedLayoutSelect'),selectedId=select.value;
+        select.replaceChildren();
+        const placeholder=document.createElement('option');placeholder.value='';placeholder.textContent=state.savedLayouts.length?'Choose a saved layout':'No saved layouts';select.append(placeholder);
+        state.savedLayouts.forEach((layout,index)=>{
+          const option=document.createElement('option');option.value=layout.id||`saved-layout-${index}`;option.textContent=`${layout.name||`Layout ${index+1}`} · ${layout.screens.length} screen${layout.screens.length===1?'':'s'}`;select.append(option);
+        });
+        select.value=state.savedLayouts.some((layout,index)=>(layout.id||`saved-layout-${index}`)===selectedId)?selectedId:'';
+        const hasSelection=!!select.value;$('recallLayout').disabled=!hasSelection;$('deleteLayout').disabled=!hasSelection;
+      }
+      function hexToRgb(hex){const value=hex.replace('#','');return [parseInt(value.slice(0,2),16),parseInt(value.slice(2,4),16),parseInt(value.slice(4,6),16)];}
+      function rgbToHex(rgb){return '#'+rgb.map(value=>Math.round(clamp(value,0,255)).toString(16).padStart(2,'0')).join('').toUpperCase();}
+      function rgbToHsl(hex){const [r0,g0,b0]=hexToRgb(hex).map(value=>value/255),max=Math.max(r0,g0,b0),min=Math.min(r0,g0,b0),d=max-min;let h=0,s=0,l=(max+min)/2;if(d){s=d/(1-Math.abs(2*l-1));if(max===r0)h=60*(((g0-b0)/d)%6);else if(max===g0)h=60*((b0-r0)/d+2);else h=60*((r0-g0)/d+4);}return [(h+360)%360,s,l];}
+      function hslToHex(h,s,l){const c=(1-Math.abs(2*l-1))*s,x=c*(1-Math.abs((h/60)%2-1)),m=l-c/2;let rgb=h<60?[c,x,0]:h<120?[x,c,0]:h<180?[0,c,x]:h<240?[0,x,c]:h<300?[x,0,c]:[c,0,x];return rgbToHex(rgb.map(value=>(value+m)*255));}
+      function mixHex(a,b,t){const aa=hexToRgb(a),bb=hexToRgb(b);return rgbToHex(aa.map((value,index)=>value+(bb[index]-value)*t));}
+      function colorPalette(id){
+        const setting=state.colorSettings[id]||defaultColors[id]||defaultColors.aurora,colors=setting.colors;
+        if(setting.mode==='single'){const [h,s,l]=rgbToHsl(colors[0]);return {base:colors[0],a:hslToHex(h,s*.72,clamp(l+.12,.08,.88)),b:hslToHex((h+32)%360,s*.78,clamp(l+.24,.1,.92)),c:hslToHex(h,s*.36,clamp(l-.2,.05,.78))};}
+        if(setting.mode==='gradient')return {base:colors[0],a:mixHex(colors[0],colors[1],.32),b:mixHex(colors[0],colors[1],.68),c:colors[1]};
+        return {base:colors[0],a:colors[1],b:colors[2],c:colors[3]};
+      }
+      function renderColorControls(){
+        const setting=state.colorSettings[state.preset]||defaultColors.aurora;$('colorMode').value=setting.mode;
+        const definitions=setting.mode==='single'?[[0,'Source color']]:setting.mode==='gradient'?[[0,'Start color'],[1,'End color']]:[[0,'Base'],[1,'Accent 1'],[2,'Accent 2'],[3,'Accent 3']];
+        $('colorControls').innerHTML=definitions.map(([index,label])=>`<div class="color-control"><label for="colorPicker${index}">${label}</label><input id="colorPicker${index}" type="color" value="${setting.colors[index]}" data-color-index="${index}" aria-label="${label}" /><input type="text" value="${setting.colors[index].toUpperCase()}" data-color-index="${index}" aria-label="${label} hex value" maxlength="7" /></div>`).join('');
+        $('colorShift').value=setting.shift;$('colorShiftVal').textContent=`${setting.shift}°`;
+      }
+      const maxBounds = () => {
+        const minX=Math.min(...state.screens.map(s=>s.x)), minY=Math.min(...state.screens.map(s=>s.y));
+        const maxX=Math.max(...state.screens.map(s=>s.x+s.width)), maxY=Math.max(...state.screens.map(s=>s.y+s.height));
+        return {x:minX,y:minY,width:Math.max(1,maxX-minX),height:Math.max(1,maxY-minY)};
+      };
+      function aspect(w,h) { const g=(a,b)=>b?g(b,a%b):a, d=g(w,h); return `${Math.round(w/d)}:${Math.round(h/d)}`; }
+      function syncInputs() {
+        const s=current(); if (!s) return;
+        $('selectedTitle').textContent=s.name||'Unnamed screen'; $('selectedAspect').textContent=aspect(s.width,s.height);
+        $('screenWidth').value=s.width; $('screenHeight').value=s.height; $('screenX').value=s.x; $('screenY').value=s.y;
+        $('gap').value=state.gap; $('gapVal').textContent=`${state.gap} px`;
+        $('maskOffscreen').checked=!!state.maskOffscreen;
+        $('energy').value=state.energy; $('energyVal').textContent=`${state.energy}%`;
+        $('grain').value=state.grain; $('grainVal').textContent=`${state.grain}%`;
+        $('screenName').value=current().name;
+        renderColorControls();
+        $('recipeFocusTitle').textContent=designNames[state.preset]||'Selected recipe';
+        $('recipeFocusSwatch').className=`swatch ${state.preset}`;
+        $('scrub').value=state.time; $('timeReadout').textContent=formatTime(state.time);
+        $('playBtn').textContent=state.playing?'Ⅱ':'▶'; $('playBtn').setAttribute('aria-label',state.playing?'Pause preview':'Play preview');
+        document.querySelectorAll('[data-layout]').forEach(b=>b.classList.toggle('active',b.dataset.layout===state.layout));
+        document.querySelectorAll('[data-preset]').forEach(b=>b.classList.toggle('active',b.dataset.preset===state.preset));
+        document.querySelectorAll('[data-design-card]').forEach(card=>card.classList.toggle('active',card.dataset.designCard===state.preset));
+        renderRecipeSelection();renderRecipeStrip();renderGraphEditor();
+        $('stageMeta').textContent=`${state.screens.length} screen${state.screens.length===1?'':'s'} · ${state.layout==='span'?'extended canvas':'separate feeds'} · ${maxBounds().width.toLocaleString()} × ${maxBounds().height.toLocaleString()} px`;
+        renderSavedLayouts();
+        updateExportSummary();
+      }
+      function updateExportSummary(){
+        const box=maxBounds(),target=$('exportTarget').value;
+        const heading=target==='canvas'?'Full extended canvas':`${state.screens.length} file${state.screens.length===1?'':'s'} · one per screen`;
+        const size=target==='canvas'?`${box.width.toLocaleString()} × ${box.height.toLocaleString()} px`:`${state.screens.map(s=>`${s.width} × ${s.height}`).join(' + ')} px`;
+        const recipeSummary=state.selectedRecipes.length?`${state.selectedRecipes.length} selected recipe${state.selectedRecipes.length===1?'':'s'}`:'No recipes selected';
+        $('exportDetails').innerHTML=`${recipeSummary}<br />${heading} · ${size}<br />${$('exportFps').value} · ${$('exportDuration').value} loop`;
+      }
+      function selectWorkspaceTab(tab){
+        document.querySelectorAll('[data-workspace-tab]').forEach(button=>{
+          const active=button.dataset.workspaceTab===tab;button.classList.toggle('active',active);button.setAttribute('aria-selected',String(active));
+        });
+        document.querySelectorAll('[data-tab-panel]').forEach(panel=>panel.classList.toggle('active',panel.dataset.tabPanel===tab));
+        $('previewTitle').textContent=tab==='layout'?'Stage preview':tab==='browser'?'Design preview':tab==='editor'?'Visual preview':'Export preview';
+        $('resetBtn').hidden=tab!=='layout';
+        $('editorRecipeStrip').hidden=tab!=='editor';
+        $('prototypeNote').hidden=tab==='browser';
+      }
+      function filterDesigns(){
+        const query=$('designSearch').value.trim().toLowerCase(),category=$('designCategory').value;
+        let visible=0;
+        document.querySelectorAll('[data-design-card]').forEach(card=>{
+          const matches=(category==='all'||card.dataset.category===category)&&(!query||card.dataset.search.includes(query));
+          card.hidden=!matches;if(matches)visible++;
+        });
+        $('designCount').textContent=`${visible} design${visible===1?'':'s'}`;$('noDesigns').hidden=visible>0;
+      }
+      function renderRecipeSelection(){
+        $('selectionCount').textContent=`${state.selectedRecipes.length} recipe${state.selectedRecipes.length===1?'':'s'} selected`;
+        document.querySelectorAll('[data-design-card]').forEach(card=>card.classList.toggle('has-recipe',state.selectedRecipes.includes(card.dataset.designCard)));
+        document.querySelectorAll('[data-toggle-recipe]').forEach(button=>{
+          const selected=state.selectedRecipes.includes(button.dataset.toggleRecipe);
+          button.classList.toggle('selected',selected);button.textContent=selected?'Selected ✓':'Select recipe';
+        });
+        document.querySelectorAll('[data-batch-route]').forEach(button=>button.disabled=state.selectedRecipes.length===0);
+        const empty=state.selectedRecipes.length===0;
+        $('advancedMode').checked=advancedMode;
+        $('editorControls').hidden=empty;$('editorNodes').hidden=empty||!advancedMode;$('emptyEditorRecipes').hidden=!empty;
+      }
+      function renderRecipeStrip(){
+        $('stripCount').textContent=state.selectedRecipes.length;
+        const thumbs=$('recipeThumbs');thumbs.innerHTML='';
+        if(!state.selectedRecipes.length){
+          thumbs.innerHTML='<div class="empty-recipes"><span>No recipes selected yet.</span><button class="ghost-btn" type="button" data-goto-browser>Browse designs</button></div>';return;
+        }
+        state.selectedRecipes.forEach(id=>{
+          const button=document.createElement('button');button.type='button';button.className='recipe-thumb'+(state.preset===id?' active':'');button.dataset.recipeThumb=id;
+          button.innerHTML=`<span class="swatch ${id}"></span><strong>${designNames[id]||id}</strong>`;
+          button.addEventListener('click',()=>choosePreset(id));thumbs.append(button);
+        });
+      }
+      function renderGraphEditor(){
+        const root=$('graphNodes');root.innerHTML='';
+        const graph=currentGraph();
+        $('nodeAddPanel').hidden=!advancedMode;
+        graph.forEach((node,index)=>{
+          const card=document.createElement('div');card.className=`node-card advanced-node${node.enabled?'':' disabled'}`;card.dataset.nodeId=node.id;
+          const icon={noise:'N',gradient:'G',mirror:'M',blend:'B',grain:'Gr',waves:'≈',contours:'⌁',rings:'◎',stars:'✦',bloom:'✿',prism:'◇',rays:'☼',ink:'◉',halftone:'⠿',particles:'✧'}[node.type]||'?';
+          const descriptions={noise:'Adds soft, organic movement.',gradient:'Shapes the color fade across the screen.',mirror:'Reflects the image across its center.',blend:'Mixes the color layers together.',grain:'Adds fine animated texture.',waves:'Sweeping curved bands with flowing phase motion.',contours:'Topographic isolines reveal a moving noise field.',rings:'Concentric orbital bands with a luminous center.',stars:'Sparse twinkling points arranged at multiple scales.',bloom:'Radial petals expand and rotate like a living mandala.',prism:'Hard-edged triangular facets form a shifting mosaic.',rays:'Directional beams fan upward from a low horizon.',ink:'Soft, diffused pigment clouds pool and spread.',halftone:'Printed dots change size to shape rolling forms.',particles:'Independent glowing sparks drift upward through space.'};
+          const actions=`<span class="node-order">${String(index+1).padStart(2,'0')}</span><span class="node-actions"><button type="button" data-node-action="up" title="Move up" aria-label="Move ${nodeNames[node.type]} up" ${index===0?'disabled':''}>↑</button><button type="button" data-node-action="down" title="Move down" aria-label="Move ${nodeNames[node.type]} down" ${index===graph.length-1?'disabled':''}>↓</button><button class="node-reset" type="button" data-node-action="reset" title="Reset node settings" aria-label="Reset ${nodeNames[node.type]} to default">↺</button><button type="button" data-node-action="remove" title="Remove node" aria-label="Remove ${nodeNames[node.type]}">×</button></span>`;
+          card.innerHTML=`<div class="node-header"><input type="checkbox" data-node-enabled ${node.enabled?'checked':''} aria-label="Enable ${nodeNames[node.type]}" /><span class="node-dot">${icon}</span><span class="node-title-wrap"><strong class="node-title">${nodeNames[node.type]}</strong><small class="node-description">${descriptions[node.type]||''}</small></span>${actions}</div>`;
+          const params={
+            noise:[['scale','Scale',1,12,.1],['speed','Flow speed',0,100,1],['contrast','Contrast',50,200,1]],
+            gradient:[['angle','Angle',0,360,1],['strength','Strength',0,100,1]],
+            blend:[['opacity','Opacity',0,100,1]],
+            grain:[['amount','Grain amount',0,100,1]],
+            mirror:[],
+            waves:[['scale','Band spacing',1,12,.1],['speed','Flow speed',0,100,1],['strength','Strength',0,100,1]],
+            contours:[['scale','Line density',1,12,.1],['speed','Drift speed',0,100,1],['strength','Strength',0,100,1]],
+            rings:[['scale','Ring density',1,12,.1],['speed','Rotation speed',0,100,1],['strength','Glow',0,100,1]],
+            stars:[['scale','Star count',4,40,1],['speed','Twinkle speed',0,100,1],['strength','Brightness',0,100,1]],
+            bloom:[['scale','Petal detail',1,12,.1],['speed','Growth speed',0,100,1],['strength','Strength',0,100,1]],
+            prism:[['scale','Facet size',2,16,.1],['speed','Shift speed',0,100,1],['strength','Contrast',0,100,1]],
+            rays:[['scale','Beam count',2,18,.1],['speed','Drift speed',0,100,1],['strength','Intensity',0,100,1]],
+            ink:[['scale','Cloud detail',1,10,.1],['speed','Diffusion speed',0,100,1],['strength','Pigment',0,100,1]],
+            halftone:[['scale','Dot density',6,36,1],['speed','Dune drift',0,100,1],['strength','Ink coverage',0,100,1]],
+            particles:[['scale','Particle count',3,24,1],['speed','Rise speed',0,100,1],['strength','Glow',0,100,1]]
+          }[node.type]||[];
+          params.forEach(([key,label,min,max,step])=>{
+            const value=Number(node[key]??min);
+            const field=document.createElement('div');field.className='node-param';
+            field.innerHTML=`<div class="field-head"><label>${label}</label><span>${key==='scale'?value.toFixed(1):Math.round(value)}${key==='scale'?'×':key==='angle'?'°':'%'}</span></div><input type="range" min="${min}" max="${max}" step="${step}" value="${value}" data-node-param="${key}" aria-label="${nodeNames[node.type]} ${label}" />`;
+            card.append(field);
+          });
+          root.append(card);
+        });
+        if(!graph.length)root.innerHTML='<p class="footer-note">No effects in this recipe. Add a node below.</p>';
+      }
+      function shaderSource(graph){
+        const declarations=[],steps=[],nodeUniformNames={};
+        graph.forEach((node,index)=>{
+          if(!node.enabled)return;
+          const a=`uNode${index}A`,b=`uNode${index}B`;nodeUniformNames[node.id]={a,b};
+          if(node.type==='noise'){
+            declarations.push(`uniform float ${a}; uniform float ${b}; uniform float ${a}C;`);
+            steps.push(`float noise${index}=clamp((fbm(patternUv*${a}*mix(.55,1.8,u_energy)+vec2(u_time*${b}*.003*1.5*u_energy,u_time*${b}*.002*1.5*u_energy))-.5)*${a}C+.5,0.0,1.0);float wave${index}=.5+.5*sin((patternUv.x*5.0+noise${index}*2.2+u_time*u_energy*.8)*6.28318);float cloud${index}=smoothstep(.25,.85,noise${index}*.58+wave${index}*.42);col=mix(col,mix(u_colorA,u_colorB,noise${index}),cloud${index}*.78);`);
+          }else if(node.type==='gradient'){
+            declarations.push(`uniform float ${a};uniform float ${b};`);
+            steps.push(`float grad${index}=clamp(dot(patternUv-vec2(.5),vec2(cos(radians(${a})),sin(radians(${a}))))+.5,0.0,1.0);col=mix(col,mix(u_base,u_colorC,grad${index}),${b});`);
+          }else if(node.type==='mirror'){
+            steps.push(`uv.x=abs(uv.x*2.0-1.0);patternUv=vec2((uv.x-.5)*outputAspect+.5,uv.y);`);
+          }else if(node.type==='blend'){
+            declarations.push(`uniform float ${a};`);
+            steps.push(`col=mix(col,mix(col,u_colorB,.42),${a});`);
+          }else if(node.type==='grain'){
+            declarations.push(`uniform float ${a};`);
+            steps.push(`float grain${index}=hash(gl_FragCoord.xy+vec2(u_time*41.0*u_energy,u_time*17.0*u_energy))-.5;col+=grain${index}*u_grain*${a}*.36;`);
+          }else if(['waves','contours','rings','stars','bloom','prism','rays','ink','halftone','particles'].includes(node.type)){
+            declarations.push(`uniform float ${a};uniform float ${b};uniform float ${a}C;`);
+            const time=`u_time*${b}*.025*u_energy`,strength=`${a}C`;
+            const patterns={
+              waves:`float p${index}=patternUv.y*${a}*5.2+sin(patternUv.x*7.0+${time})*.65+sin(patternUv.x*15.0-${time}*.45)*.16;float band${index}=1.0-smoothstep(.08,.3,abs(fract(p${index})-.5));float shape${index}=smoothstep(-.1,.9,sin(p${index}*6.28318));col=mix(col,mix(u_colorB,u_colorA,shape${index}),band${index}*${strength});`,
+              contours:`float field${index}=fbm(patternUv*${a}*1.65+vec2(${time}*.16,-${time}*.11));float contour${index}=1.0-smoothstep(.018,.075,abs(fract(field${index}*${a}*1.6)-.5));col=mix(col,u_colorA,contour${index}*${strength});`,
+              rings:`vec2 rp${index}=patternUv-vec2(.5);float rr${index}=length(rp${index});float ring${index}=pow(max(0.0,.5+.5*cos(rr${index}*${a}*15.0-${time})),12.0)*exp(-rr${index}*1.35);col=mix(col,u_colorB,ring${index}*${strength});`,
+              stars:`vec2 sg${index}=patternUv*${a};vec2 sc${index}=floor(sg${index});vec2 sf${index}=fract(sg${index});float sr${index}=hash(sc${index});vec2 sp${index}=vec2(hash(sc${index}+3.1),hash(sc${index}+8.7));float tw${index}=.45+.55*sin(u_time*(${b}*.05+sr${index}*2.0)*u_energy+sr${index}*30.0);float star${index}=(1.0-smoothstep(.015,.09,length(sf${index}-sp${index})))*step(.79,sr${index})*tw${index};col+=u_colorB*star${index}*${strength}*.85;`,
+              bloom:`vec2 bp${index}=patternUv-vec2(.5);float br${index}=length(bp${index});float ba${index}=atan(bp${index}.y,bp${index}.x);float pet${index}=.5+.5*cos(ba${index}*8.0+br${index}*${a}*3.0-${time});float flower${index}=smoothstep(.17,.68,pet${index})*(1.0-smoothstep(.42,.9,br${index}));col=mix(col,mix(u_colorA,u_colorB,pet${index}),flower${index}*${strength});`,
+              prism:`vec2 pg${index}=patternUv*${a}*1.4;vec2 pc${index}=floor(pg${index});vec2 pf${index}=fract(pg${index});float tri${index}=step(pf${index}.x,pf${index}.y);float facet${index}=mod(pc${index}.x+pc${index}.y+tri${index},3.0);vec3 prism${index}=facet${index}<1.0?u_colorA:(facet${index}<2.0?u_colorB:u_colorC);float edge${index}=smoothstep(.0,.025,min(abs(pf${index}.x-pf${index}.y),min(min(pf${index}.x,1.0-pf${index}.x),min(pf${index}.y,1.0-pf${index}.y))));col=mix(col,prism${index}*(.84+.16*sin(${time}+facet${index})),${strength}*(.62+.38*edge${index}));`,
+              rays:`vec2 rp${index}=patternUv-vec2(.5,.02);float ra${index}=atan(rp${index}.x,max(.04,rp${index}.y));float beam${index}=pow(max(0.0,.5+.5*cos(ra${index}*${a}*1.25+sin(ra${index}*3.0+${time})*.45)),18.0);float horizon${index}=1.0-smoothstep(.05,.9,length(rp${index}));col=mix(col,u_colorB,beam${index}*horizon${index}*${strength});`,
+              ink:`vec2 ip${index}=patternUv*${a}*.72+vec2(${time}*.012,-${time}*.009);float pigment${index}=fbm(ip${index})*.7+fbm(ip${index}*2.1+5.3)*.3;float wash${index}=smoothstep(.38,.72,pigment${index});col=mix(col,mix(u_colorA,u_colorC,pigment${index}),wash${index}*${strength});`,
+              halftone:`vec2 hg${index}=patternUv*${a};vec2 hf${index}=fract(hg${index})-.5;float hfield${index}=fbm(patternUv*3.0+vec2(${time}*.025,0.0));float radius${index}=mix(.12,.48,smoothstep(.28,.72,hfield${index}));float dot${index}=1.0-smoothstep(radius${index}-.035,radius${index}+.035,length(hf${index}));col=mix(col,u_colorA,dot${index}*${strength});`,
+              particles:`vec2 qg${index}=patternUv*${a};vec2 qc${index}=floor(qg${index});vec2 qf${index}=fract(qg${index});float qr${index}=hash(qc${index});vec2 qp${index}=vec2(hash(qc${index}+2.4),fract(hash(qc${index}+7.1)+u_time*${b}*.0025*u_energy*(.35+qr${index})));float glow${index}=exp(-length((qf${index}-qp${index})*vec2(1.0,1.7))*24.0)*step(.64,qr${index});col+=u_colorB*glow${index}*${strength}*.78;`
+            };
+            steps.push(patterns[node.type]);
+          }
+        });
+        const fragment=`#version 300 es
+precision highp float;
+in vec2 v_uv;out vec4 outColor;
+uniform vec2 u_resolution;uniform float u_time;uniform float u_energy;uniform float u_grain;uniform float u_colorShift;
+uniform vec3 u_base;uniform vec3 u_colorA;uniform vec3 u_colorB;uniform vec3 u_colorC;
+uniform vec4 u_screenRects[32];uniform int u_screenCount;uniform bool u_clipScreens;uniform bool u_separate;
+${declarations.join('\n')}
+float hash(vec2 p){p=fract(p*vec2(123.34,456.21));p+=dot(p,p+45.32);return fract(p.x*p.y);}
+float noise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);return mix(mix(hash(i),hash(i+vec2(1,0)),f.x),mix(hash(i+vec2(0,1)),hash(i+vec2(1,1)),f.x),f.y);}
+float fbm(vec2 p){float v=0.0,a=.5;for(int i=0;i<4;i++){v+=noise(p)*a;p=p*2.03+17.1;a*=.5;}return v;}
+vec3 rgbToHsv(vec3 c){vec4 K=vec4(0.0,-1.0/3.0,2.0/3.0,-1.0);vec4 p=mix(vec4(c.bg,K.wz),vec4(c.gb,K.xy),step(c.b,c.g));vec4 q=mix(vec4(p.xyw,c.r),vec4(c.r,p.yzx),step(p.x,c.r));float d=q.x-min(q.w,q.y);float e=1.0e-10;return vec3(abs(q.z+(q.w-q.y)/(6.0*d+e)),d/(q.x+e),q.x);}
+vec3 hsvToRgb(vec3 c){vec3 p=abs(fract(c.xxx+vec3(0.0,2.0/3.0,1.0/3.0))*6.0-3.0);return c.z*mix(vec3(1.0),clamp(p-1.0,0.0,1.0),c.y);}
+void main(){vec2 uv=v_uv;int screenIndex=-1;vec2 localUv=uv;
+for(int i=0;i<32;i++){if(i<u_screenCount){vec4 r=u_screenRects[i];if(uv.x>=r.x&&uv.x<=r.x+r.z&&uv.y>=r.y&&uv.y<=r.y+r.w){screenIndex=i;localUv=(uv-r.xy)/r.zw;}}}
+if(u_clipScreens&&screenIndex<0)discard;if(u_separate&&screenIndex>=0)uv=localUv;float outputAspect=u_resolution.x/u_resolution.y;if(u_separate&&screenIndex>=0){vec4 selectedRect=u_screenRects[screenIndex];outputAspect=selectedRect.z*u_resolution.x/(selectedRect.w*u_resolution.y);}vec2 patternUv=vec2((uv.x-.5)*outputAspect+.5,uv.y);
+vec3 col=mix(u_base,u_colorC,smoothstep(0.0,1.0,uv.y)*.62);
+${steps.join('\n')}
+vec3 hsv=rgbToHsv(clamp(col,0.0,1.0));hsv.x=fract(hsv.x+u_colorShift);outColor=vec4(hsvToRgb(hsv),1.0);}`;
+        return {fragment,nodeUniformNames};
+      }
+      function compileGraph(){
+        if(!gl){$('shaderStatus').textContent='WebGL 2 is unavailable in this browser.';$('shaderStatus').classList.add('error');return;}
+        const graph=currentGraph(),key=JSON.stringify(graph.map(({id,type,enabled})=>({id,type,enabled})));
+        if(key===compiledGraphKey&&shaderProgram)return;
+        const built=shaderSource(graph);
+        const vertex=`#version 300 es
+precision highp float;out vec2 v_uv;void main(){vec2 p=gl_VertexID==0?vec2(-1.0,-1.0):(gl_VertexID==1?vec2(3.0,-1.0):vec2(-1.0,3.0));v_uv=p*.5+.5;gl_Position=vec4(p,0.0,1.0);}`;
+        let vs,fs,program;
+        try{
+          const make=(type,source)=>{const shader=gl.createShader(type);gl.shaderSource(shader,source);gl.compileShader(shader);if(!gl.getShaderParameter(shader,gl.COMPILE_STATUS))throw new Error(gl.getShaderInfoLog(shader)||'Shader compilation failed');return shader;};
+          vs=make(gl.VERTEX_SHADER,vertex);fs=make(gl.FRAGMENT_SHADER,built.fragment);program=gl.createProgram();gl.attachShader(program,vs);gl.attachShader(program,fs);gl.linkProgram(program);
+          if(!gl.getProgramParameter(program,gl.LINK_STATUS))throw new Error(gl.getProgramInfoLog(program)||'Shader link failed');
+          const names=['u_resolution','u_time','u_energy','u_grain','u_colorShift','u_base','u_colorA','u_colorB','u_colorC','u_screenRects','u_screenCount','u_clipScreens','u_separate'];
+          const uniforms={};names.forEach(name=>uniforms[name]=gl.getUniformLocation(program,name));
+          const nodeUniforms={};Object.entries(built.nodeUniformNames).forEach(([id,slots])=>{nodeUniforms[id]={a:gl.getUniformLocation(program,slots.a),b:gl.getUniformLocation(program,slots.b),c:gl.getUniformLocation(program,slots.a+'C')};});
+          if(shaderProgram)gl.deleteProgram(shaderProgram);shaderProgram=program;shaderUniforms=uniforms;shaderNodeUniforms=nodeUniforms;compiledGraphKey=key;
+          $('shaderStatus').textContent=`WebGL 2 shader compiled · ${graph.filter(node=>node.enabled).length} active nodes`;$('shaderStatus').classList.remove('error');
+        }catch(error){if(program)gl.deleteProgram(program);$('shaderStatus').textContent=`Shader error: ${error.message}`;$('shaderStatus').classList.add('error');}
+        finally{if(vs)gl.deleteShader(vs);if(fs)gl.deleteShader(fs);}
+      }
+      function choosePreset(id){
+        if(state.recipeSettings[state.preset])state.recipeSettings[state.preset]={energy:state.energy,grain:state.grain};
+        state.preset=id;
+        const settings=state.recipeSettings[id]||{energy:35,grain:12};state.energy=settings.energy??settings.motion??35;state.grain=settings.grain??12;
+        compileGraph();syncInputs();draw();save();
+      }
+      function toggleRecipe(id){
+        if(state.selectedRecipes.includes(id))state.selectedRecipes=state.selectedRecipes.filter(item=>item!==id);
+        else {state.selectedRecipes.push(id);choosePreset(id);}
+        if(state.selectedRecipes.length&&!state.selectedRecipes.includes(state.preset))choosePreset(state.selectedRecipes[0]);
+        syncInputs();renderRecipeStrip();draw();save();
+      }
+      function renderList() {
+        $('screenList').innerHTML='';
+        state.screens.forEach((s,i)=>{
+          const row=document.createElement('div'); row.className='screen-item'+(s.id===state.selected?' selected':''); row.dataset.id=s.id;
+          row.innerHTML=`<span class="screen-icon">${i+1}</span><span class="screen-copy"><strong></strong><small></small></span><span class="screen-actions"><button class="icon-btn" title="Remove screen" aria-label="Remove screen">×</button></span>`;
+          row.querySelector('strong').textContent=s.name||'Unnamed screen'; row.querySelector('small').textContent=`${s.width} × ${s.height} · ${aspect(s.width,s.height)}`;
+          row.addEventListener('click',e=>{ if(e.target.closest('button')) return;state.selected=s.id;syncInputs();renderList();draw();save(); });
+          row.querySelector('button').addEventListener('click',e=>{e.stopPropagation();if(state.screens.length<2)return;state.screens=state.screens.filter(x=>x.id!==s.id);if(state.selected===s.id)state.selected=state.screens[Math.max(0,i-1)].id;syncInputs();renderList();draw();save();});
+          $('screenList').append(row);
+        });
+      }
+      function draw(updateOverlays=true) {
+        const box=maxBounds(), stage=$('stage');
+        stage.style.aspectRatio=`${box.width} / ${box.height}`;
+        stage.style.transform=`translate(${panX}px, ${panY}px) scale(${viewZoom})`;
+        $('zoomLabel').textContent=`${Math.round(viewZoom*100)}%`;
+        const dpr=Math.min(window.devicePixelRatio||1,2), w=Math.max(1,Math.round(stage.clientWidth*dpr)), h=Math.max(1,Math.round(stage.clientHeight*dpr));
+        if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h;}
+        if(gl){
+          if(!shaderProgram)compileGraph();
+          if(shaderProgram){
+            gl.viewport(0,0,canvas.width,canvas.height);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT);gl.useProgram(shaderProgram);
+            const set1=(name,value)=>{const loc=shaderUniforms[name];if(loc!==null)gl.uniform1f(loc,value);};
+            const palette=colorPalette(state.preset),colorSetting=state.colorSettings[state.preset]||defaultColors.aurora;
+            const rgb=hex=>[parseInt(hex.slice(1,3),16)/255,parseInt(hex.slice(3,5),16)/255,parseInt(hex.slice(5,7),16)/255];
+            if(shaderUniforms.u_resolution)gl.uniform2f(shaderUniforms.u_resolution,canvas.width,canvas.height);
+            set1('u_time',elapsed);set1('u_energy',state.energy/100);set1('u_grain',state.grain/100);set1('u_colorShift',colorSetting.shift/360);
+            gl.uniform3fv(shaderUniforms.u_base,rgb(palette.base));gl.uniform3fv(shaderUniforms.u_colorA,rgb(palette.a));gl.uniform3fv(shaderUniforms.u_colorB,rgb(palette.b));gl.uniform3fv(shaderUniforms.u_colorC,rgb(palette.c));
+            const rects=new Float32Array(128),screenCount=Math.min(32,state.screens.length);
+            state.screens.slice(0,32).forEach((screen,index)=>{
+              const x=(screen.x-box.x)/box.width,y=1-(screen.y-box.y+screen.height)/box.height,w=screen.width/box.width,h=screen.height/box.height;
+              rects.set([x,y,w,h],index*4);
+            });
+            gl.uniform4fv(shaderUniforms.u_screenRects,rects);gl.uniform1i(shaderUniforms.u_screenCount,screenCount);
+            gl.uniform1i(shaderUniforms.u_clipScreens,state.maskOffscreen||state.layout==='separate'?1:0);gl.uniform1i(shaderUniforms.u_separate,state.layout==='separate'?1:0);
+            const graph=currentGraph();
+            graph.forEach((node,index)=>{if(!node.enabled)return;const slots=shaderNodeUniforms[node.id];if(!slots)return;
+              const patterned=['waves','contours','rings','stars','bloom','prism','rays','ink','halftone','particles'].includes(node.type);
+              if(slots.a!==null){const value=node.type==='noise'||patterned?node.scale:node.type==='gradient'?node.angle:node.type==='blend'?node.opacity/100:node.type==='grain'?node.amount/100:0;gl.uniform1f(slots.a,value);}
+              if(slots.b!==null)gl.uniform1f(slots.b,node.type==='noise'||patterned?(node.speed??0):node.type==='gradient'?(node.strength??32)/100:0);
+              if(slots.c!==null)gl.uniform1f(slots.c,patterned?(node.strength??82)/100:(node.contrast??100)/100);
+            });
+            gl.drawArrays(gl.TRIANGLES,0,3);
+          }
+        }
+        const fit=Math.min(stage.clientWidth/box.width,stage.clientHeight/box.height);
+        if(updateOverlays){
+          const outlines=$('outlines');outlines.innerHTML='';
+          state.screens.forEach(s=>{const el=document.createElement('div');el.className='screen-outline'+(s.id===state.selected?' selected':'');el.dataset.screenId=s.id;el.style.left=`${(s.x-box.x)/box.width*100}%`;el.style.top=`${(s.y-box.y)/box.height*100}%`;el.style.width=`${s.width/box.width*100}%`;el.style.height=`${s.height/box.height*100}%`;const tag=document.createElement('span');tag.textContent=s.name||'Unnamed screen';el.append(tag);outlines.append(el);});
+        }
+        $('scaleReadout').textContent=`Preview scale · ${Math.max(1,Math.round(fit*100))}%`;
+      }
+      function updateSelected(key,value){const s=current();if(!s)return;s[key]=Number(value)||0;if(key==='width'||key==='height')s[key]=Math.max(key==='width'?320:240,Math.min(key==='width'?12000:8000,s[key]));syncInputs();renderList();draw();save();}
+      $('screenName').addEventListener('input',e=>{const s=current();if(!s)return;s.name=e.target.value;$('selectedTitle').textContent=s.name||'Unnamed screen';renderList();draw();save();});
+      $('screenName').addEventListener('change',e=>{const s=current();if(!s)return;s.name=e.target.value.trim()||`Screen ${state.screens.indexOf(s)+1}`;e.target.value=s.name;$('selectedTitle').textContent=s.name;renderList();draw();save();});
+      function setZoom(next){viewZoom=Math.max(.5,Math.min(10,Math.round(next*100)/100));draw();}
+      $('zoomIn').addEventListener('click',()=>setZoom(viewZoom+.2));
+      $('zoomOut').addEventListener('click',()=>setZoom(viewZoom-.2));
+      $('fitView').addEventListener('click',()=>{viewZoom=1;panX=0;panY=0;draw();});
+      $('outlines').addEventListener('click',e=>{
+        const outline=e.target.closest('.screen-outline');
+        if(!outline)return;
+        state.selected=outline.dataset.screenId;syncInputs();renderList();draw();save();
+      });
+      $('previewWrap').addEventListener('wheel',e=>{
+        if(e.target.closest('.preview-controls'))return;
+        e.preventDefault();
+        const oldZoom=viewZoom, next=Math.max(.5,Math.min(10,oldZoom*Math.exp(-e.deltaY*.0015)));
+        if(next===oldZoom)return;
+        const rect=$('stage').getBoundingClientRect();
+        const dx=e.clientX-(rect.left+rect.width/2),dy=e.clientY-(rect.top+rect.height/2);
+        const factor=next/oldZoom;
+        panX-=dx*(factor-1);panY-=dy*(factor-1);viewZoom=next;draw();
+      },{passive:false});
+      $('previewWrap').addEventListener('pointerdown',e=>{
+        if(e.button!==0||e.target.closest('.screen-outline, .preview-controls'))return;
+        dragging=true;dragMoved=false;pointerX=e.clientX;pointerY=e.clientY;startPanX=panX;startPanY=panY;
+        $('previewWrap').classList.add('panning');$('previewWrap').setPointerCapture(e.pointerId);
+      });
+      $('previewWrap').addEventListener('pointermove',e=>{
+        if(!dragging)return;
+        const dx=e.clientX-pointerX,dy=e.clientY-pointerY;
+        if(Math.abs(dx)+Math.abs(dy)>3)dragMoved=true;
+        panX=startPanX+dx;panY=startPanY+dy;draw();
+      });
+      const stopPan=e=>{if(!dragging)return;dragging=false;$('previewWrap').classList.remove('panning');if(dragMoved){e.preventDefault();setTimeout(()=>{dragMoved=false;},0);}};
+      $('previewWrap').addEventListener('pointerup',stopPan);
+      $('previewWrap').addEventListener('pointercancel',stopPan);
+      $('previewWrap').addEventListener('click',e=>{if(dragMoved){e.preventDefault();e.stopImmediatePropagation();dragMoved=false;}},true);
+      [['screenWidth','width'],['screenHeight','height'],['screenX','x'],['screenY','y']].forEach(([id,key])=>$(id).addEventListener('input',e=>updateSelected(key,e.target.value)));
+      $('gap').addEventListener('input',e=>{state.gap=Number(e.target.value);let x=0;state.screens.forEach(s=>{s.x=x;x+=s.width+state.gap;});$('gapVal').textContent=`${state.gap} px`;syncInputs();renderList();draw();save();});
+      $('maskOffscreen').addEventListener('change',e=>{state.maskOffscreen=e.target.checked;draw();save();});
+      $('energy').addEventListener('input',e=>{state.energy=Number(e.target.value);state.recipeSettings[state.preset]={energy:state.energy,grain:state.grain};$('energyVal').textContent=`${state.energy}%`;draw();save();});
+      $('grain').addEventListener('input',e=>{state.grain=Number(e.target.value);state.recipeSettings[state.preset]={energy:state.energy,grain:state.grain};$('grainVal').textContent=`${state.grain}%`;draw();save();});
+      $('colorMode').addEventListener('change',e=>{state.colorSettings[state.preset].mode=e.target.value;renderColorControls();draw();save();});
+      $('colorShift').addEventListener('input',e=>{const setting=state.colorSettings[state.preset];setting.shift=Number(e.target.value);$('colorShiftVal').textContent=`${setting.shift}°`;draw();save();});
+      $('colorControls').addEventListener('input',e=>{
+        const field=e.target.closest('[data-color-index]');if(!field)return;
+        const value=field.value.trim().toUpperCase();if(!/^#[0-9A-F]{6}$/.test(value))return;
+        const index=Number(field.dataset.colorIndex);state.colorSettings[state.preset].colors[index]=value;
+        $('colorControls').querySelectorAll(`[data-color-index="${index}"]`).forEach(input=>{if(input!==field)input.value=value;});
+        draw();save();
+      });
+      $('resetEnergy').addEventListener('click',()=>{state.energy=35;state.recipeSettings[state.preset]={energy:35,grain:state.grain};syncInputs();draw();save();});
+      $('resetColor').addEventListener('click',()=>{state.colorSettings[state.preset]=JSON.parse(JSON.stringify(defaultColors[state.preset]||defaultColors.aurora));syncInputs();draw();save();});
+      $('resetGrain').addEventListener('click',()=>{state.grain=12;state.recipeSettings[state.preset]={energy:state.energy,grain:12};syncInputs();draw();save();});
+      $('graphNodes').addEventListener('click',e=>{
+        const action=e.target.closest('[data-node-action]');if(!action)return;
+        const graph=currentGraph(),card=action.closest('[data-node-id]'),index=graph.findIndex(node=>node.id===card.dataset.nodeId),kind=action.dataset.nodeAction;
+        if(index<0)return;
+        if(kind==='reset'){
+          const node=graph[index],wasEnabled=node.enabled;
+          ['scale','speed','contrast','angle','strength','opacity','amount'].forEach(key=>delete node[key]);
+          Object.assign(node,defaultNodeParams(node.type));node.enabled=true;
+          if(!wasEnabled)compileGraph();renderGraphEditor();draw();save();return;
+        }
+        if(kind==='remove')graph.splice(index,1);
+        else if(kind==='up'&&index>0)[graph[index-1],graph[index]]=[graph[index],graph[index-1]];
+        else if(kind==='down'&&index<graph.length-1)[graph[index+1],graph[index]]=[graph[index],graph[index+1]];
+        compileGraph();renderGraphEditor();draw();save();
+      });
+      $('graphNodes').addEventListener('change',e=>{
+        if(!e.target.matches('[data-node-enabled]'))return;
+        const card=e.target.closest('[data-node-id]'),node=currentGraph().find(item=>item.id===card.dataset.nodeId);if(!node)return;
+        node.enabled=e.target.checked;compileGraph();renderGraphEditor();draw();save();
+      });
+      $('graphNodes').addEventListener('input',e=>{
+        if(!e.target.matches('[data-node-param]'))return;
+        const card=e.target.closest('[data-node-id]'),node=currentGraph().find(item=>item.id===card.dataset.nodeId);if(!node)return;
+        const key=e.target.dataset.nodeParam;node[key]=Number(e.target.value);
+        const readout=e.target.parentElement.querySelector('.field-head span');
+        readout.textContent=key==='scale'?`${node[key].toFixed(1)}×`:key==='angle'?`${Math.round(node[key])}°`:`${Math.round(node[key])}%`;
+        draw();save();
+      });
+      $('addGraphNode').addEventListener('click',()=>{
+        currentGraph().push(createNode($('addNodeType').value));compileGraph();renderGraphEditor();draw();save();
+      });
+      $('advancedMode').addEventListener('change',e=>{advancedMode=e.target.checked;renderRecipeSelection();renderGraphEditor();});
+      $('scrub').addEventListener('input',e=>{state.time=Number(e.target.value);elapsed=state.time;syncInputs();draw();save();});
+      $('playBtn').addEventListener('click',()=>{state.playing=!state.playing;syncInputs();save();});
+      document.querySelectorAll('[data-layout]').forEach(b=>b.addEventListener('click',()=>{state.layout=b.dataset.layout;syncInputs();draw();save();}));
+      document.querySelectorAll('[data-preset]').forEach(b=>b.addEventListener('click',()=>choosePreset(b.dataset.preset)));
+      document.querySelectorAll('[data-toggle-recipe]').forEach(b=>b.addEventListener('click',()=>toggleRecipe(b.dataset.toggleRecipe)));
+      $('addScreen').addEventListener('click',()=>{const n=state.screens.length+1,s={id:`screen-${Date.now()}`,name:`Screen ${n}`,width:1920,height:1080,x:maxBounds().width+state.gap,y:0};state.screens.push(s);state.selected=s.id;syncInputs();renderList();draw();save();});
+      $('resetBtn').addEventListener('click',()=>{const savedLayouts=state.savedLayouts;state={...initial,screens:initial.screens.map(s=>({...s})),recipeGraphs:{},colorSettings:JSON.parse(JSON.stringify(defaultColors)),savedLayouts};Object.keys(designNames).forEach(id=>state.recipeGraphs[id]=defaultRecipeGraph(id));elapsed=state.time;compiledGraphKey='';compileGraph();syncInputs();renderList();draw();save();});
+      $('saveLayout').addEventListener('click',()=>{
+        const id=`layout-${Date.now()}-${Math.random().toString(36).slice(2,7)}`;
+        const name=$('layoutName').value.trim()||`Layout ${state.savedLayouts.length+1}`;
+        state.savedLayouts.push({id,name,layout:state.layout,gap:state.gap,selected:state.selected,screens:state.screens.map(screen=>({...screen}))});
+        renderSavedLayouts();$('savedLayoutSelect').value=id;$('savedLayoutStatus').textContent=`“${name}” saved on this device.`;$('recallLayout').disabled=false;$('deleteLayout').disabled=false;save();
+      });
+      $('layoutName').addEventListener('keydown',e=>{if(e.key==='Enter')$('saveLayout').click();});
+      $('savedLayoutSelect').addEventListener('change',()=>{const active=!!$('savedLayoutSelect').value;$('recallLayout').disabled=!active;$('deleteLayout').disabled=!active;});
+      $('recallLayout').addEventListener('click',()=>{
+        const saved=state.savedLayouts.find((layout,index)=>(layout.id||`saved-layout-${index}`)===$('savedLayoutSelect').value);if(!saved)return;
+        state.screens=saved.screens.map(screen=>({...screen}));state.layout=saved.layout==='separate'?'separate':'span';state.gap=clamp(Number(saved.gap)||0,0,180);
+        state.selected=state.screens.some(screen=>screen.id===saved.selected)?saved.selected:state.screens[0].id;viewZoom=1;panX=0;panY=0;
+        syncInputs();renderList();draw();save();$('savedLayoutStatus').textContent=`“${saved.name||'Saved layout'}” recalled.`;
+      });
+      $('deleteLayout').addEventListener('click',()=>{
+        const id=$('savedLayoutSelect').value,index=state.savedLayouts.findIndex((layout,itemIndex)=>(layout.id||`saved-layout-${itemIndex}`)===id);if(index<0)return;
+        const [removed]=state.savedLayouts.splice(index,1);renderSavedLayouts();save();$('savedLayoutStatus').textContent=`“${removed.name||'Saved layout'}” deleted.`;
+      });
+      $('saveBtn').addEventListener('click',()=>{save();});
+      document.querySelectorAll('[data-workspace-tab]').forEach(button=>button.addEventListener('click',()=>selectWorkspaceTab(button.dataset.workspaceTab)));
+      $('designSearch').addEventListener('input',filterDesigns);
+      $('designCategory').addEventListener('change',filterDesigns);
+      document.querySelectorAll('[data-batch-route]').forEach(button=>button.addEventListener('click',()=>{
+        if(!state.selectedRecipes.length)return;
+        if(button.dataset.batchRoute==='editor'&&!state.selectedRecipes.includes(state.preset))choosePreset(state.selectedRecipes[0]);
+        selectWorkspaceTab(button.dataset.batchRoute);
+      }));
+      document.addEventListener('click',e=>{if(e.target.closest('[data-goto-browser]'))selectWorkspaceTab('browser');});
+      ['exportTarget','exportFormat','exportFps','exportDuration'].forEach(id=>$(id).addEventListener('change',updateExportSummary));
+      $('renderVideo').addEventListener('click',()=>{$('exportNotice').textContent=state.selectedRecipes.length?'Prototype mode: your selected recipe exports are ready, but the video render service has not been connected yet.':'Choose one or more recipes in Browser before exporting.';});
+      function frame(now){const dt=Math.min(.05,(now-last)/1000);last=now;if(state.playing){elapsed+=dt;state.time=(state.time+dt)%30;$('scrub').value=state.time;$('timeReadout').textContent=formatTime(state.time);draw(false);}anim=requestAnimationFrame(frame);}
+      syncInputs();renderList();filterDesigns();compileGraph();draw();window.addEventListener('resize',draw);anim=requestAnimationFrame(frame);
+    })();
+  </script>
+</body>
+</html>
