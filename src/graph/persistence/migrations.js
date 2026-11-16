@@ -1,0 +1,1 @@
+export function migrateGraphDocument(document) { const source = document || {}; return { version: 1, ...source, layers: (source.layers || []).map(layer => ({ ...layer, connections: layer.connections || [], parameterConnections: layer.parameterConnections || [] })) }; }
